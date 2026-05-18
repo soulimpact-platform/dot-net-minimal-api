@@ -1,9 +1,31 @@
-// ログイン時に保存したユーザー名を取得
-const username = sessionStorage.getItem("username");
+// ログイン時に保存したJWTを取得
+const token = sessionStorage.getItem("token");
 
-if (!username) {
-    // ユーザー名が保存されていない場合、ログイン画面へ戻る
+if (!token) {
+    // JWTが保存されていない場合、ログイン画面へ戻る
     window.location.href = "login.html";
+} else {
+    // JWTが有効かサーバー側で確認
+    checkLogin();
+}
+
+// サーバー側でJWTの有効性を確認
+async function checkLogin() {
+    const response = await fetch("/api/auth/check", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            token: token
+        })
+    });
+
+    if (!response.ok) {
+        // JWTが無効・期限切れ・DBに存在しない場合はログイン画面へ戻る
+        sessionStorage.removeItem("token");
+        window.location.href = "login.html";
+    }
 }
 
 document.getElementById("searchButton").addEventListener("click", async function () {
@@ -13,6 +35,7 @@ document.getElementById("searchButton").addEventListener("click", async function
     const message = document.getElementById("message");
     const resultArea = document.getElementById("resultArea");
 
+    // 前回のメッセージと検索結果をクリア
     message.textContent = "";
     resultArea.innerHTML = "";
 
@@ -26,6 +49,7 @@ document.getElementById("searchButton").addEventListener("click", async function
     const response = await fetch(`/api/products/search?name=${encodeURIComponent(name)}&category=${encodeURIComponent(category)}`);
 
     if (!response.ok) {
+        // API呼び出しに失敗した場合
         message.textContent = "検索に失敗しました。";
         return;
     }
@@ -33,6 +57,7 @@ document.getElementById("searchButton").addEventListener("click", async function
     const products = await response.json();
 
     if (products.length === 0) {
+        // 検索結果が0件の場合
         message.textContent = "該当する書籍がありません。";
         return;
     }
@@ -52,6 +77,7 @@ document.getElementById("searchButton").addEventListener("click", async function
     products.forEach(function (product) {
         const row = document.createElement("tr");
 
+        // 書籍名をクリックすると詳細画面へ遷移
         row.innerHTML = `
             <td><a href="detail.html?id=${product.id}">${product.name}</a></td>
             <td>${product.category}</td>
