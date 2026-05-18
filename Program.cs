@@ -57,15 +57,17 @@ app.MapGet("/api/products/search", (string name, string category) =>
 
     var command = connection.CreateCommand();
     command.CommandText = @"
-        SELECT id, name, category, price
-        FROM products
-        WHERE name LIKE $name
-          AND category LIKE $category
-        ORDER BY id
-    ";
+    SELECT id, name, category, price
+    FROM products
+    WHERE ($name = '' OR name LIKE $nameLike)
+      AND ($category = '' OR category LIKE $categoryLike)
+    ORDER BY id
+";
 
-    command.Parameters.AddWithValue("$name", $"%{name}%");
-    command.Parameters.AddWithValue("$category", $"%{category}%");
+command.Parameters.AddWithValue("$name", name);
+command.Parameters.AddWithValue("$nameLike", $"%{name}%");
+command.Parameters.AddWithValue("$category", category);
+command.Parameters.AddWithValue("$categoryLike", $"%{category}%");
 
     using var reader = command.ExecuteReader();
 

@@ -2,9 +2,9 @@
 
 ## 概要
 
-ログイン画面で入力されたユーザー名・パスワードを、SQLite の `users` テーブルと照合します。  
-ログイン後の画面で入力された書籍名・カテゴリを、SQLite の `products` テーブルと照合します。  
-検索結果の書籍名をクリックすると、書籍詳細画面へ遷移します。
+ログイン画面で入力されたユーザー名・パスワードをSQLite の `users` テーブルと照合します。  
+ログイン後のアカウント表示画面から書籍検索画面へ遷移し、入力された書籍名・カテゴリを SQLite の `products` テーブルと照合します。  
+検索結果の書籍名をクリックすると書籍詳細画面へ遷移します。
 
 ## 使用技術
 
@@ -60,21 +60,22 @@ http://localhost:8080/login.html
 ## 画面
 
 - `login.html`：ログイン画面
-- `account.html`：アカウント表示・書籍検索画面
+- `account.html`：アカウント表示画面
+- `search.html`：書籍検索画面
 - `detail.html`：書籍詳細画面
 
 ## 検索機能
 
-ログイン後のアカウント表示画面で、書籍名とカテゴリを入力して検索します。
-入力された書籍名・カテゴリを、SQLite の `products` テーブルと照合します。  
-検索条件は以下の2項目で、AND条件として検索します。
+書籍検索画面で入力された書籍名・カテゴリを、SQLite の `products` テーブルと照合します。
+検索条件は以下の2項目で、書籍名のみ・カテゴリのみ・書籍名とカテゴリの両方を指定して検索できます。  
+両方を指定した場合はAND条件として検索します。
 
 - 書籍名
 - カテゴリ
 
 ```sql
-WHERE name LIKE $name
-  AND category LIKE $category
+WHERE ($name = '' OR name LIKE $nameLike)
+  AND ($category = '' OR category LIKE $categoryLike)
 ```
 
 ## API

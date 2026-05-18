@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>書籍検索画面</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>書籍検索画面</h1>
+
+        <div class="form-group">
+            <label for="name">書籍名</label>
+            <input type="text" id="name">
+        </div>
+
+        <div class="form-group">
+            <label for="category">カテゴリ</label>
+            <input type="text" id="category">
+        </div>
+
+        <button id="searchButton">検索</button>
+
+        <p id="message" class="message"></p>
+
+        <div id="resultArea"></div>
+
+        <br>
+
+        <button id="backButton">アカウント表示画面へ戻る</button>
+    </div>
+
+    <script src="search.js"></script>
+</body>
+</html>
