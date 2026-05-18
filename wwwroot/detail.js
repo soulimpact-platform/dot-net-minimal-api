@@ -36,5 +36,5 @@ async function loadProductDetail(id) {
 }
 
 document.getElementById("backButton").addEventListener("click", function () {
-    window.location.href = "account.html";
+    window.location.href = "search.html";
 });
