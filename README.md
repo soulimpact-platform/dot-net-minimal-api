@@ -2,11 +2,10 @@
 
 ## 概要
 
-
 ログイン画面で入力されたユーザー名・パスワードを、PostgreSQL の `users` テーブルと照合します。  
 認証に成功するとJWTを発行し、PostgreSQL の `login_tokens` テーブルに保存します。
 
-ログイン後の画面では、保存されたJWTを `/api/auth/check` に送信し、サーバー側でJWTの署名・有効期限・DB保存有無を確認します。  
+ログイン後の画面では、保存されたJWTを `/api/auth/check` に送信し、サーバー側でJWTの署名・有効期限・DB保存有無を確認します。
 
 ログイン後はアカウント表示画面から書籍検索画面へ遷移できます。  
 書籍検索画面では書籍名またはカテゴリを条件に PostgreSQL の `products` テーブルを検索し、検索結果の書籍名をクリックすると詳細画面へ遷移します。
@@ -56,6 +55,27 @@ docker compose up --build
 ```text
 http://localhost:8080/login.html
 ```
+
+停止する場合は以下を実行します。
+
+```powershell
+docker compose down
+```
+
+DBのデータも含めて初期化したい場合は以下を実行します。
+
+```powershell
+docker compose down -v
+```
+
+## DB初期化
+
+PostgreSQL のテーブル作成および初期データ登録は`db/init.sql` で行っています。
+以下のテーブルが作成されます。
+
+- `users`：ログインユーザー情報
+- `products`：書籍情報
+- `login_tokens`：発行済みJWT情報
 
 ## 画面
 
