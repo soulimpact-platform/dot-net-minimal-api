@@ -10,8 +10,11 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "Host=localhost;Port=5432;Database=login_sample;Username=app_user;Password=app_password";
 
-// JWTの発行・検証に使用する設定
-var jwtSecret = "this_is_sample_jwt_secret_key_1234567890";
+// JWTの署名に使用するシークレットキーを取得
+var jwtSecret = builder.Configuration["Jwt:Secret"]
+    ?? throw new InvalidOperationException("JWT Secret is not configured");
+
+// JWTの発行者と利用者を設定
 var jwtIssuer = "dot-net-minimal-api";
 var jwtAudience = "dot-net-minimal-api-user";
 
@@ -56,6 +59,9 @@ app.MapPost("/api/login", (LoginRequest request) =>
         jwtAudience,
         expiresAt
     );
+
+    // 同一ユーザーの期限切れJWTを削除
+    DeleteExpiredTokens(connectionString, username);
 
     // 発行したJWTをDBに保存
     SaveLoginToken(connectionString, username, token, expiresAt);
@@ -318,6 +324,24 @@ static void DeleteLoginToken(string connectionString, string token)
     ";
 
     command.Parameters.AddWithValue("token", token);
+
+    command.ExecuteNonQuery();
+}
+
+// 指定ユーザーの期限切れJWTをDBから削除
+static void DeleteExpiredTokens(string connectionString, string username)
+{
+    using var connection = new NpgsqlConnection(connectionString);
+    connection.Open();
+
+    var command = connection.CreateCommand();
+    command.CommandText = @"
+        DELETE FROM login_tokens
+        WHERE username = @username
+          AND expires_at <= NOW()
+    ";
+
+    command.Parameters.AddWithValue("username", username);
 
     command.ExecuteNonQuery();
 }
