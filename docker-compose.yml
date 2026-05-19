@@ -6,6 +6,7 @@ services:
     environment:
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=login_sample;Username=app_user;Password=app_password
+      - Jwt__Secret=V7xq9mK2pL4sN8rT6yB3cD5fG1hJ0aZ9uW2eR4tY6iO8pA1sD3fG5hJ7kL9
     depends_on:
       db:
         condition: service_healthy

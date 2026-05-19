@@ -39,12 +39,6 @@ document.getElementById("searchButton").addEventListener("click", async function
     message.textContent = "";
     resultArea.innerHTML = "";
 
-    // 書籍名またはカテゴリのどちらかを入力必須とする
-    if (!name && !category) {
-        message.textContent = "書籍名またはカテゴリを入力してください。";
-        return;
-    }
-
     // 書籍検索APIを呼び出す
     const response = await fetch(`/api/products/search?name=${encodeURIComponent(name)}&category=${encodeURIComponent(category)}`);
 

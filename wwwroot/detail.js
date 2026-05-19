@@ -1,24 +1,18 @@
 // ログイン時に保存したJWTを取得
 const token = sessionStorage.getItem("token");
 
-if (!token) {
-    // JWTが保存されていない場合、ログイン画面へ戻る
-    window.location.href = "login.html";
-} else {
-    // JWTが有効かサーバー側で確認
-    checkLogin();
-}
-
 // URLから書籍IDを取得
 const params = new URLSearchParams(window.location.search);
 const id = params.get("id");
 
 const message = document.getElementById("message");
 
-if (!id) {
-    message.textContent = "書籍IDが指定されていません。";
+if (!token) {
+    // JWTが保存されていない場合、ログイン画面へ戻る
+    window.location.href = "login.html";
 } else {
-    loadProductDetail(id);
+    // JWTが有効かサーバー側で確認
+    checkLogin();
 }
 
 // サーバー側でJWTの有効性を確認
@@ -37,7 +31,17 @@ async function checkLogin() {
         // JWTが無効、期限切れ、またはDBに存在しない場合はログイン画面へ戻る
         sessionStorage.removeItem("token");
         window.location.href = "login.html";
+        return;
     }
+
+    if (!id) {
+        // URLにidが指定されていない場合
+        message.textContent = "書籍IDが指定されていません。";
+        return;
+    }
+
+    // 認証成功後に書籍詳細を取得
+    loadProductDetail(id);
 }
 
 // 詳細APIを呼び出して書籍情報を表示
