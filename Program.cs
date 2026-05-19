@@ -20,9 +20,6 @@ var app = builder.Build();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-// アプリ起動時にDBとテーブルを作成し、初期データを登録
-InitializeDatabase(connectionString);
-
 // ログインAPI
 // 画面から送信されたユーザー名・パスワードをDBのusersテーブルと照合し、成功時にJWTを発行する
 app.MapPost("/api/login", (LoginRequest request) =>
@@ -187,82 +184,6 @@ app.MapGet("/api/products/{id:int}", (int id) =>
 });
 
 app.Run();
-
-// DBとテーブルを初期作成し、初期データを登録
-static void InitializeDatabase(string connectionString)
-{
-    using var connection = new NpgsqlConnection(connectionString);
-    connection.Open();
-
-    // usersテーブルを作成
-    var createUsersTableCommand = connection.CreateCommand();
-    createUsersTableCommand.CommandText = @"
-        CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            username TEXT NOT NULL UNIQUE,
-            password TEXT NOT NULL
-        );
-    ";
-    createUsersTableCommand.ExecuteNonQuery();
-
-    // productsテーブルを作成
-    var createProductsTableCommand = connection.CreateCommand();
-    createProductsTableCommand.CommandText = @"
-        CREATE TABLE IF NOT EXISTS products (
-            id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL,
-            category TEXT NOT NULL,
-            price INTEGER NOT NULL,
-            description TEXT NOT NULL
-        );
-    ";
-    createProductsTableCommand.ExecuteNonQuery();
-
-    // login_tokensテーブルを作成
-    // 発行済みJWTを保存し、チェックAPIやログアウトAPIで利用
-    var createLoginTokensTableCommand = connection.CreateCommand();
-    createLoginTokensTableCommand.CommandText = @"
-        CREATE TABLE IF NOT EXISTS login_tokens (
-            id SERIAL PRIMARY KEY,
-            username TEXT NOT NULL,
-            token TEXT NOT NULL UNIQUE,
-            expires_at TIMESTAMPTZ NOT NULL
-        );
-    ";
-    createLoginTokensTableCommand.ExecuteNonQuery();
-
-    // 初期ログインユーザーを登録
-    var insertUsersCommand = connection.CreateCommand();
-    insertUsersCommand.CommandText = @"
-        INSERT INTO users (username, password)
-        VALUES
-            ('user01', 'password01'),
-            ('user02', 'password02'),
-            ('user03', 'password03'),
-            ('user04', 'password04')
-        ON CONFLICT (username) DO NOTHING;
-    ";
-    insertUsersCommand.ExecuteNonQuery();
-
-    // 初期書籍データを登録
-    var insertProductsCommand = connection.CreateCommand();
-    insertProductsCommand.CommandText = @"
-        INSERT INTO products (id, name, category, price, description)
-        VALUES
-            (1, '独習C#', '技術書', 3600, 'C#の基本を学べる入門書'),
-            (2, 'なるほどなっとくC#入門', '技術書', 3000, 'C#の基礎を分かりやすく解説した書籍'),
-            (3, '独習JavaScript 新版', '技術書', 3200, 'JavaScriptの基本を学べる入門書'),
-            (4, '吾輩は猫である', '小説', 800, '夏目漱石による風刺小説'),
-            (5, '坊っちゃん', '小説', 700, '夏目漱石による青春小説'),
-            (6, '銀河鉄道の夜', '小説', 750, '宮沢賢治による幻想小説'),
-            (7, '日本の歴史', '歴史', 1200, '日本史の流れを学べる書籍'),
-            (8, '世界の歴史', '歴史', 1300, '世界史の流れを学べる書籍'),
-            (9, '英単語ターゲット1900', '語学', 1100, '英単語を学習するための単語集'),
-            (10, '速読英単語 必修編', '語学', 1200, '英文を読みながら単語を学べる書籍')
-        ON CONFLICT (id) DO NOTHING;
-    ";
-    insertProductsCommand.ExecuteNonQuery();
-}
 
 // ログイン成功時にJWTを生成
 static string CreateJwtToken(
