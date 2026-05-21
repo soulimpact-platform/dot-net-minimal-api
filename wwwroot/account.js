@@ -32,11 +32,26 @@ async function checkLogin() {
 
     // チェックAPIから返されたユーザー名を画面に表示
     document.getElementById("username").textContent = data.username;
+
+    // 管理者ユーザの場合のみ管理者メニューを表示
+    if (data.role === "admin") {
+        document.getElementById("adminMenu").style.display = "block";
+    }
 }
 
 document.getElementById("searchPageButton").addEventListener("click", function () {
     // 書籍検索画面へ遷移
     window.location.href = "search.html";
+});
+
+document.getElementById("userManageButton").addEventListener("click", function () {
+    // ユーザ管理機能は後続対応
+    alert("ユーザ管理機能は現在未実装です。");
+});
+
+document.getElementById("productManageButton").addEventListener("click", function () {
+    // 書籍管理機能は後続対応
+    alert("書籍管理機能は現在未実装です。");
 });
 
 document.getElementById("logoutButton").addEventListener("click", async function () {

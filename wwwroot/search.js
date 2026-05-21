@@ -1,6 +1,18 @@
 // ログイン時に保存したJWTを取得
 const token = sessionStorage.getItem("token");
 
+// 現在のページ番号
+let currentPage = 1;
+
+// 1ページあたりの表示件数
+const pageSize = 10;
+
+// 現在の並び替え項目
+let currentSortBy = "id";
+
+// 現在の並び順
+let currentSortOrder = "asc";
+
 if (!token) {
     // JWTが保存されていない場合、ログイン画面へ戻る
     window.location.href = "login.html";
@@ -28,19 +40,93 @@ async function checkLogin() {
     }
 }
 
-document.getElementById("searchButton").addEventListener("click", async function () {
-    // 入力された検索条件を取得
+// 検索条件を取得
+function getSearchConditions() {
     const name = document.getElementById("name").value;
     const category = document.getElementById("category").value;
+    const author = document.getElementById("author").value;
+    const minPrice = document.getElementById("minPrice").value;
+    const maxPrice = document.getElementById("maxPrice").value;
+
+    return {
+        name,
+        category,
+        author,
+        minPrice,
+        maxPrice,
+        sortBy: currentSortBy,
+        sortOrder: currentSortOrder
+    };
+}
+
+// 検索API用のURLを作成
+function createSearchUrl(page) {
+    const conditions = getSearchConditions();
+
+    const params = new URLSearchParams({
+        name: conditions.name,
+        category: conditions.category,
+        author: conditions.author,
+        sortBy: conditions.sortBy,
+        sortOrder: conditions.sortOrder,
+        page: page,
+        pageSize: pageSize
+    });
+
+    if (conditions.minPrice) {
+        params.append("minPrice", conditions.minPrice);
+    }
+
+    if (conditions.maxPrice) {
+        params.append("maxPrice", conditions.maxPrice);
+    }
+
+    return `/api/products/search?${params.toString()}`;
+}
+
+// CSVエクスポートAPI用のURLを作成
+function createCsvUrl() {
+    const conditions = getSearchConditions();
+
+    const params = new URLSearchParams({
+        name: conditions.name,
+        category: conditions.category,
+        author: conditions.author,
+        sortBy: conditions.sortBy,
+        sortOrder: conditions.sortOrder
+    });
+
+    if (conditions.minPrice) {
+        params.append("minPrice", conditions.minPrice);
+    }
+
+    if (conditions.maxPrice) {
+        params.append("maxPrice", conditions.maxPrice);
+    }
+
+    return `/api/products/export-csv?${params.toString()}`;
+}
+
+document.getElementById("searchButton").addEventListener("click", async function () {
+    // 検索ボタン押下時は1ページ目から表示
+    currentPage = 1;
+
+    await searchProducts();
+});
+
+// 書籍検索APIを呼び出し、検索結果を表示
+async function searchProducts() {
     const message = document.getElementById("message");
     const resultArea = document.getElementById("resultArea");
+    const pagingArea = document.getElementById("pagingArea");
 
-    // 前回のメッセージと検索結果をクリア
+    // 前回のメッセージ、検索結果、ページングをクリア
     message.textContent = "";
     resultArea.innerHTML = "";
+    pagingArea.innerHTML = "";
 
-    // 書籍検索APIを呼び出す
-    const response = await fetch(`/api/products/search?name=${encodeURIComponent(name)}&category=${encodeURIComponent(category)}`);
+    // 現在の検索条件とページ番号で書籍検索APIを呼び出し
+    const response = await fetch(createSearchUrl(currentPage));
 
     if (!response.ok) {
         // API呼び出しに失敗した場合
@@ -48,7 +134,8 @@ document.getElementById("searchButton").addEventListener("click", async function
         return;
     }
 
-    const products = await response.json();
+    const result = await response.json();
+    const products = result.products;
 
     if (products.length === 0) {
         // 検索結果が0件の場合
@@ -57,13 +144,30 @@ document.getElementById("searchButton").addEventListener("click", async function
     }
 
     // 検索結果をテーブル形式で表示
+    renderProductTable(products);
+
+    // ページングを表示
+    renderPaging(result.totalCount, result.page, result.pageSize);
+}
+
+// 検索結果テーブルを表示
+function renderProductTable(products) {
+    const resultArea = document.getElementById("resultArea");
+
     const table = document.createElement("table");
     table.className = "result-table";
 
     table.innerHTML = `
         <tr>
-            <th>書籍名</th>
-            <th>カテゴリ</th>
+            <th>
+                書籍名
+                <button class="sort-button" data-sort-by="name">${getSortMark("name")}</button>
+            </th>
+            <th>
+                カテゴリ
+                <button class="sort-button" data-sort-by="category">${getSortMark("category")}</button>
+            </th>
+            <th>著者</th>
             <th>価格</th>
         </tr>
     `;
@@ -75,6 +179,7 @@ document.getElementById("searchButton").addEventListener("click", async function
         row.innerHTML = `
             <td><a href="detail.html?id=${product.id}">${product.name}</a></td>
             <td>${product.category}</td>
+            <td>${product.author}</td>
             <td>${product.price}円</td>
         `;
 
@@ -82,6 +187,77 @@ document.getElementById("searchButton").addEventListener("click", async function
     });
 
     resultArea.appendChild(table);
+
+    // ソートボタンのクリック処理を設定
+    document.querySelectorAll(".sort-button").forEach(function (button) {
+        button.addEventListener("click", async function () {
+            const sortBy = button.dataset.sortBy;
+
+            if (currentSortBy === sortBy) {
+                // 同じ項目をクリックした場合は昇順と降順を切り替え
+                currentSortOrder = currentSortOrder === "asc" ? "desc" : "asc";
+            } else {
+                // 別の項目をクリックした場合は昇順から開始
+                currentSortBy = sortBy;
+                currentSortOrder = "asc";
+            }
+
+            // 並び替え時は1ページ目から表示
+            currentPage = 1;
+
+            await searchProducts();
+        });
+    });
+}
+
+// 現在の並び順に応じたソート表示を取得
+function getSortMark(sortBy) {
+    if (currentSortBy !== sortBy) {
+        return "↕";
+    }
+
+    return currentSortOrder === "asc" ? "▲" : "▼";
+}
+
+// ページングを表示
+function renderPaging(totalCount, page, pageSize) {
+    const pagingArea = document.getElementById("pagingArea");
+
+    const totalPages = Math.ceil(totalCount / pageSize);
+
+    if (totalPages <= 1) {
+        return;
+    }
+
+    const previousButton = document.createElement("button");
+    previousButton.textContent = "前へ";
+    previousButton.disabled = page <= 1;
+
+    previousButton.addEventListener("click", async function () {
+        currentPage--;
+        await searchProducts();
+    });
+
+    const pageText = document.createElement("span");
+    pageText.textContent = ` ${page} / ${totalPages} ページ `;
+
+    const nextButton = document.createElement("button");
+    nextButton.textContent = "次へ";
+    nextButton.disabled = page >= totalPages;
+
+    nextButton.addEventListener("click", async function () {
+        currentPage++;
+        await searchProducts();
+    });
+
+    pagingArea.appendChild(previousButton);
+    pagingArea.appendChild(pageText);
+    pagingArea.appendChild(nextButton);
+}
+
+document.getElementById("csvButton").addEventListener("click", function () {
+    // 現在の検索条件に一致する全件をCSV出力
+    window.location.href = createCsvUrl();
 });
 
 document.getElementById("backButton").addEventListener("click", function () {

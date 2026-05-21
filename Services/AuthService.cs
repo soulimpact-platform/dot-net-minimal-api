@@ -32,9 +32,12 @@ public class AuthService : IAuthService
     public LoginResponse? Login(LoginRequest request)
     {
         // ユーザー名とパスワードをDBで確認
-        var username = _userRepository.FindUsername(request.Username, request.Password);
+        var user = _userRepository.FindByUsernameAndPassword(
+            request.Username,
+            request.Password
+        );
 
-        if (username is null)
+        if (user is null)
         {
             return null;
         }
@@ -43,13 +46,13 @@ public class AuthService : IAuthService
         var expiresAt = DateTime.UtcNow.AddHours(1);
 
         // ログインユーザー用のJWTを生成
-        var token = CreateJwtToken(username, expiresAt);
+        var token = CreateJwtToken(user, expiresAt);
 
         // 同一ユーザーの期限切れJWTを削除
-        _loginTokenRepository.DeleteExpired(username);
+        _loginTokenRepository.DeleteExpired(user.Id);
 
         // 発行したJWTをDBに保存
-        _loginTokenRepository.Save(username, token, expiresAt);
+        _loginTokenRepository.Save(user.Id, token, expiresAt);
 
         return new LoginResponse(
             true,
@@ -61,20 +64,24 @@ public class AuthService : IAuthService
     public AuthCheckResponse? Check(TokenRequest request)
     {
         // JWTの署名、有効期限、発行者、利用者を検証
-        var username = ValidateJwtToken(request.Token);
+        var user = ValidateJwtToken(request.Token);
 
-        if (username is null)
+        if (user is null)
         {
             return null;
         }
 
         // JWTがDBに保存されていて有効期限内か確認
-        if (!_loginTokenRepository.Exists(username, request.Token))
+        if (!_loginTokenRepository.Exists(user.Id, request.Token))
         {
             return null;
         }
 
-        return new AuthCheckResponse(true, username);
+        return new AuthCheckResponse(
+            true,
+            user.Username,
+            user.Role
+        );
     }
 
     public MessageResponse Logout(TokenRequest request)
@@ -88,12 +95,14 @@ public class AuthService : IAuthService
         );
     }
 
-    private string CreateJwtToken(string username, DateTime expiresAt)
+    private string CreateJwtToken(UserInfo user, DateTime expiresAt)
     {
         // JWTに含めるユーザー情報を設定
         var claims = new[]
         {
-            new Claim(ClaimTypes.Name, username)
+            new Claim("user_id", user.Id.ToString()),
+            new Claim(ClaimTypes.Name, user.Username),
+            new Claim(ClaimTypes.Role, user.Role)
         };
 
         // 秘密鍵を使って署名情報を作成
@@ -109,10 +118,11 @@ public class AuthService : IAuthService
             signingCredentials: credentials
         );
 
+        // JWTを文字列として返却
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    private string? ValidateJwtToken(string token)
+    private UserInfo? ValidateJwtToken(string token)
     {
         try
         {
@@ -144,7 +154,22 @@ public class AuthService : IAuthService
             // JWTを検証し、問題なければユーザー情報を取得
             var principal = tokenHandler.ValidateToken(token, parameters, out _);
 
-            return principal.Identity?.Name;
+            var userIdText = principal.FindFirst("user_id")?.Value;
+            var username = principal.Identity?.Name;
+            var role = principal.FindFirst(ClaimTypes.Role)?.Value;
+
+            if (!int.TryParse(userIdText, out var userId) ||
+                string.IsNullOrEmpty(username) ||
+                string.IsNullOrEmpty(role))
+            {
+                return null;
+            }
+
+            return new UserInfo(
+                userId,
+                username,
+                role
+            );
         }
         catch
         {

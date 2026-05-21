@@ -59,6 +59,7 @@ async function loadProductDetail(id) {
     // 取得した書籍情報を画面に表示
     document.getElementById("name").textContent = product.name;
     document.getElementById("category").textContent = product.category;
+    document.getElementById("author").textContent = product.author;
     document.getElementById("price").textContent = `${product.price}円`;
     document.getElementById("description").textContent = product.description;
 }

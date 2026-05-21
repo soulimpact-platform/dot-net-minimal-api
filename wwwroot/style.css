@@ -5,8 +5,9 @@ body {
 }
 
 .container {
-    width: 360px;
-    margin: 100px auto;
+    width: 900px;
+    max-width: calc(100% - 40px);
+    margin: 60px auto;
     padding: 30px;
     background-color: #ffffff;
     border-radius: 8px;
@@ -66,4 +67,70 @@ button:hover {
 .detail-area p {
     margin-bottom: 12px;
     line-height: 1.6;
+}
+
+select {
+    width: 100%;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+.admin-menu {
+    display: none;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid #dddddd;
+}
+
+.admin-menu h2 {
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.action-area {
+    margin-top: 16px;
+}
+
+.action-area button {
+    margin-bottom: 10px;
+}
+
+.result-table {
+    width: 100%;
+    margin-top: 20px;
+    border-collapse: collapse;
+}
+
+.result-table th,
+.result-table td {
+    padding: 8px;
+    border: 1px solid #dddddd;
+    text-align: left;
+}
+
+.result-table th {
+    background-color: #f4f6f8;
+}
+
+.paging-area {
+    margin-top: 16px;
+    text-align: center;
+}
+
+.paging-area button {
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+.sort-button {
+    width: auto;
+    margin-left: 6px;
+    padding: 2px 6px;
+    font-size: 12px;
+}
+
+.form-area {
+    width: 360px;
+    max-width: 100%;
+    margin: 0 auto;
 }

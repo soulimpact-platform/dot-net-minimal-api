@@ -9,19 +9,23 @@
     <div class="container">
         <h1>ログイン</h1>
 
-        <div class="form-group">
-            <label for="username">ユーザー名</label>
-            <input type="text" id="username">
+        <div class="form-area">
+            <div class="form-group">
+                <label for="username">ユーザー名</label>
+                <input type="text" id="username">
+            </div>
+
+            <div class="form-group">
+                <label for="password">パスワード</label>
+                <input type="password" id="password">
+            </div>
+
+            <div class="action-area">
+                <button id="loginButton">ログイン</button>
+            </div>
+
+            <p id="message" class="message"></p>
         </div>
-
-        <div class="form-group">
-            <label for="password">パスワード</label>
-            <input type="password" id="password">
-        </div>
-
-        <button id="loginButton">ログイン</button>
-
-        <p id="message" class="message"></p>
     </div>
 
     <script src="login.js"></script>
