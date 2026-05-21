@@ -3,6 +3,7 @@ public record ProductDetailResponse(
     int Id,
     string Name,
     string Category,
+    string Author,
     int Price,
     string Description
 );
