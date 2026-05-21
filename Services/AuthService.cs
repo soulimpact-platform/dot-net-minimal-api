@@ -95,7 +95,7 @@ public class AuthService : IAuthService
         );
     }
 
-    private string CreateJwtToken(UserInfo user, DateTime expiresAt)
+    private string CreateJwtToken(AuthenticatedUser user, DateTime expiresAt)
     {
         // JWTに含めるユーザー情報を設定
         var claims = new[]
@@ -122,7 +122,7 @@ public class AuthService : IAuthService
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
-    private UserInfo? ValidateJwtToken(string token)
+    private AuthenticatedUser? ValidateJwtToken(string token)
     {
         try
         {
@@ -165,7 +165,7 @@ public class AuthService : IAuthService
                 return null;
             }
 
-            return new UserInfo(
+            return new AuthenticatedUser(
                 userId,
                 username,
                 role

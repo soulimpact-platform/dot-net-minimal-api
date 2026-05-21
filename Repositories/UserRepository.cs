@@ -12,7 +12,7 @@ public class UserRepository : IUserRepository
             ?? throw new InvalidOperationException("DefaultConnection is not configured");
     }
 
-    public UserInfo? FindByUsernameAndPassword(string username, string password)
+    public AuthenticatedUser? FindByUsernameAndPassword(string username, string password)
     {
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
@@ -35,7 +35,7 @@ public class UserRepository : IUserRepository
             return null;
         }
 
-        return new UserInfo(
+        return new AuthenticatedUser(
             reader.GetInt32(0),
             reader.GetString(1),
             reader.GetString(2)

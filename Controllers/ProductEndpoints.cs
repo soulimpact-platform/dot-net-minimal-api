@@ -46,6 +46,9 @@ public static class ProductEndpoints
             string? sortOrder,
             IProductService productService) =>
         {
+            const int csvExportLimit = 10000;
+
+            // 上限超過判定用に1件多く取得
             var products = productService.SearchAll(
                 name,
                 category,
@@ -53,8 +56,17 @@ public static class ProductEndpoints
                 minPrice,
                 maxPrice,
                 sortBy,
-                sortOrder
+                sortOrder,
+                csvExportLimit + 1
             );
+
+            if (products.Count > csvExportLimit)
+            {
+                return Results.BadRequest(new
+                {
+                    message = "件数が多すぎます。検索条件を絞ってください。"
+                });
+            }
 
             var csv = new StringBuilder();
 
@@ -67,9 +79,11 @@ public static class ProductEndpoints
                 );
             }
 
+            var shiftJis = Encoding.GetEncoding("Shift_JIS");
+
             return Results.File(
-                Encoding.UTF8.GetBytes(csv.ToString()),
-                "text/csv",
+                shiftJis.GetBytes(csv.ToString()),
+                "text/csv; charset=Shift_JIS",
                 "products.csv"
             );
         });
@@ -89,14 +103,18 @@ public static class ProductEndpoints
         });
     }
 
-    // CSV出力用にカンマ、ダブルクォーテーション、改行を含む文字列を整形
+    // CSV出力用にリスクのある先頭文字や区切り文字を含む文字列を整形
     private static string EscapeCsv(string value)
     {
-        if (value.Contains(',') || value.Contains('"') || value.Contains('\n'))
+        var needsQuote = value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r');
+
+        // Excel等で数式として解釈される可能性がある先頭文字をエスケープ
+        if (value.Length > 0 && "=+-@\t\r".Contains(value[0]))
         {
-            return $"\"{value.Replace("\"", "\"\"")}\"";
+            value = "'" + value;
+            needsQuote = true;
         }
 
-        return value;
+        return needsQuote ? $"\"{value.Replace("\"", "\"\"")}\"" : value;
     }
 }
