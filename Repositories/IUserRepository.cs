@@ -2,5 +2,5 @@
 public interface IUserRepository
 {
     // ユーザー名とパスワードに一致するユーザー情報を取得
-    UserInfo? FindByUsernameAndPassword(string username, string password);
+    AuthenticatedUser? FindByUsernameAndPassword(string username, string password);
 }

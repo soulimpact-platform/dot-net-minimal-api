@@ -23,8 +23,8 @@ public class ProductService : IProductService
         // ページ番号が不正な場合は1ページ目に補正
         var validPage = page < 1 ? 1 : page;
 
-        // 1ページ件数が不正な場合は10件に補正
-        var validPageSize = pageSize < 1 ? 10 : pageSize;
+        // 1ページ件数が不正な場合は10件、上限超過時は100件に補正
+        var validPageSize = pageSize < 1 ? 10 : Math.Min(pageSize, 100);
 
         return _productRepository.Search(
             name ?? string.Empty,
@@ -46,7 +46,8 @@ public class ProductService : IProductService
         int? minPrice,
         int? maxPrice,
         string? sortBy,
-        string? sortOrder
+        string? sortOrder,
+        int limit
     )
     {
         return _productRepository.SearchAll(
@@ -56,7 +57,8 @@ public class ProductService : IProductService
             minPrice,
             maxPrice,
             sortBy ?? "id",
-            sortOrder ?? "asc"
+            sortOrder ?? "asc",
+            limit
         );
     }
 

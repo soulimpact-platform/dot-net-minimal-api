@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
     password TEXT NOT NULL,
-    role TEXT NOT NULL
+    role TEXT NOT NULL CHECK (role IN ('general', 'admin'))
 );
 
 CREATE TABLE IF NOT EXISTS categories (
@@ -34,13 +34,13 @@ CREATE TABLE IF NOT EXISTS login_tokens (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
-INSERT INTO users (id, username, password, role)
+INSERT INTO users (id, username, password, role) OVERRIDING SYSTEM VALUE
 VALUES
     (1, 'user01', 'password01', 'general'),
     (2, 'user02', 'password02', 'general'),
     (3, 'user03', 'password03', 'general'),
     (4, 'admin01', 'password01', 'admin')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO categories (id, name)
 VALUES

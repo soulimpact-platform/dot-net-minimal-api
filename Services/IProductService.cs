@@ -22,7 +22,8 @@ public interface IProductService
         int? minPrice,
         int? maxPrice,
         string? sortBy,
-        string? sortOrder
+        string? sortOrder,
+        int limit
     );
 
     // 指定されたIDの書籍詳細を取得

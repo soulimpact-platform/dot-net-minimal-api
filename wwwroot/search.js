@@ -23,18 +23,24 @@ if (!token) {
 
 // サーバー側でJWTの有効性を確認
 async function checkLogin() {
-    const response = await fetch("/api/auth/check", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            token: token
-        })
-    });
+    try {
+        const response = await fetch("/api/auth/check", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                token: token
+            })
+        });
 
-    if (!response.ok) {
-        // JWTが無効・期限切れ・DBに存在しない場合はログイン画面へ戻る
+        if (!response.ok) {
+            // JWTが無効・期限切れ・DBに存在しない場合はログイン画面へ戻る
+            sessionStorage.removeItem("token");
+            window.location.href = "login.html";
+        }
+    } catch {
+        // 認証確認時に通信エラーが発生した場合はログイン画面へ戻る
         sessionStorage.removeItem("token");
         window.location.href = "login.html";
     }
@@ -125,29 +131,34 @@ async function searchProducts() {
     resultArea.innerHTML = "";
     pagingArea.innerHTML = "";
 
-    // 現在の検索条件とページ番号で書籍検索APIを呼び出し
-    const response = await fetch(createSearchUrl(currentPage));
+    try {
+        // 現在の検索条件とページ番号で書籍検索APIを呼び出し
+        const response = await fetch(createSearchUrl(currentPage));
 
-    if (!response.ok) {
-        // API呼び出しに失敗した場合
-        message.textContent = "検索に失敗しました。";
-        return;
+        if (!response.ok) {
+            // API呼び出しに失敗した場合
+            message.textContent = "検索に失敗しました。";
+            return;
+        }
+
+        const result = await response.json();
+        const products = result.products;
+
+        if (products.length === 0) {
+            // 検索結果が0件の場合
+            message.textContent = "該当する書籍がありません。";
+            return;
+        }
+
+        // 検索結果をテーブル形式で表示
+        renderProductTable(products);
+
+        // ページングを表示
+        renderPaging(result.totalCount, result.page, result.pageSize);
+    } catch {
+        // 通信断などでfetch自体に失敗した場合
+        message.textContent = "通信エラーが発生しました。";
     }
-
-    const result = await response.json();
-    const products = result.products;
-
-    if (products.length === 0) {
-        // 検索結果が0件の場合
-        message.textContent = "該当する書籍がありません。";
-        return;
-    }
-
-    // 検索結果をテーブル形式で表示
-    renderProductTable(products);
-
-    // ページングを表示
-    renderPaging(result.totalCount, result.page, result.pageSize);
 }
 
 // 検索結果テーブルを表示
@@ -159,13 +170,13 @@ function renderProductTable(products) {
 
     table.innerHTML = `
         <tr>
-            <th>
+            <th aria-sort="${getAriaSort("name")}">
                 書籍名
-                <button class="sort-button" data-sort-by="name">${getSortMark("name")}</button>
+                <button class="sort-button" data-sort-by="name" aria-label="書籍名で並び替え">${getSortMark("name")}</button>
             </th>
-            <th>
+            <th aria-sort="${getAriaSort("category")}">
                 カテゴリ
-                <button class="sort-button" data-sort-by="category">${getSortMark("category")}</button>
+                <button class="sort-button" data-sort-by="category" aria-label="カテゴリで並び替え">${getSortMark("category")}</button>
             </th>
             <th>著者</th>
             <th>価格</th>
@@ -219,6 +230,15 @@ function getSortMark(sortBy) {
     return currentSortOrder === "asc" ? "▲" : "▼";
 }
 
+// 現在の並び順に応じたaria-sort属性値を取得
+function getAriaSort(sortBy) {
+    if (currentSortBy !== sortBy) {
+        return "none";
+    }
+
+    return currentSortOrder === "asc" ? "ascending" : "descending";
+}
+
 // ページングを表示
 function renderPaging(totalCount, page, pageSize) {
     const pagingArea = document.getElementById("pagingArea");
@@ -255,9 +275,37 @@ function renderPaging(totalCount, page, pageSize) {
     pagingArea.appendChild(nextButton);
 }
 
-document.getElementById("csvButton").addEventListener("click", function () {
-    // 現在の検索条件に一致する全件をCSV出力
-    window.location.href = createCsvUrl();
+document.getElementById("csvButton").addEventListener("click", async function () {
+    const message = document.getElementById("message");
+
+    // 前回のメッセージをクリア
+    message.textContent = "";
+
+    try {
+        // 現在の検索条件に一致するCSVを取得
+        const response = await fetch(createCsvUrl());
+
+        if (!response.ok) {
+            const error = await response.json();
+
+            // CSV出力に失敗した場合
+            message.textContent = error.message ?? "CSVエクスポートに失敗しました。";
+            return;
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "products.csv";
+        link.click();
+
+        window.URL.revokeObjectURL(url);
+    } catch {
+        // 通信断などでfetch自体に失敗した場合
+        message.textContent = "通信エラーが発生しました。";
+    }
 });
 
 document.getElementById("backButton").addEventListener("click", function () {

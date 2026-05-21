@@ -37,16 +37,9 @@ public class ProductRepository : IProductRepository
 
         // 検索条件に一致する総件数を取得
         var countCommand = connection.CreateCommand();
-        countCommand.CommandText = @"
+        countCommand.CommandText = $@"
             SELECT COUNT(*)
-            FROM products p
-            INNER JOIN categories c ON p.category_id = c.id
-            INNER JOIN authors a ON p.author_id = a.id
-            WHERE (@name = '' OR p.name LIKE @nameLike)
-              AND (@category = '' OR c.name LIKE @categoryLike)
-              AND (@author = '' OR a.name LIKE @authorLike)
-              AND (@minPrice IS NULL OR p.price >= @minPrice)
-              AND (@maxPrice IS NULL OR p.price <= @maxPrice)
+            {BuildFromWhereQuery()}
         ";
 
         // 検索条件をSQLパラメータに設定
@@ -57,16 +50,13 @@ public class ProductRepository : IProductRepository
         // 検索結果をページ単位で取得
         var command = connection.CreateCommand();
         command.CommandText = $@"
-            SELECT p.id, p.name, c.name, a.name, p.price
-            FROM products p
-            INNER JOIN categories c ON p.category_id = c.id
-            INNER JOIN authors a ON p.author_id = a.id
-            WHERE (@name = '' OR p.name LIKE @nameLike)
-              AND (@category = '' OR c.name LIKE @categoryLike)
-              AND (@author = '' OR a.name LIKE @authorLike)
-              AND (@minPrice IS NULL OR p.price >= @minPrice)
-              AND (@maxPrice IS NULL OR p.price <= @maxPrice)
-            ORDER BY {orderBy} {orderDirection}, p.id ASC
+            SELECT
+                p.id AS id,
+                p.name AS name,
+                c.name AS category_name,
+                a.name AS author_name,
+                p.price AS price
+            {BuildBaseQuery(orderBy, orderDirection)}
             LIMIT @pageSize OFFSET @offset
         ";
 
@@ -82,13 +72,7 @@ public class ProductRepository : IProductRepository
         while (reader.Read())
         {
             // DBから取得した行を検索結果用レスポンスに変換
-            products.Add(new ProductResponse(
-                reader.GetInt32(0),
-                reader.GetString(1),
-                reader.GetString(2),
-                reader.GetString(3),
-                reader.GetInt32(4)
-            ));
+            products.Add(CreateProductResponse(reader));
         }
 
         // 検索結果、総件数、ページ情報を返却
@@ -107,7 +91,8 @@ public class ProductRepository : IProductRepository
         int? minPrice,
         int? maxPrice,
         string sortBy,
-        string sortOrder
+        string sortOrder,
+        int limit
     )
     {
         var products = new List<ProductResponse>();
@@ -119,36 +104,31 @@ public class ProductRepository : IProductRepository
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
-        // 検索条件に一致する書籍を全件取得
+        // 検索条件に一致する書籍を指定件数まで取得
         var command = connection.CreateCommand();
         command.CommandText = $@"
-            SELECT p.id, p.name, c.name, a.name, p.price
-            FROM products p
-            INNER JOIN categories c ON p.category_id = c.id
-            INNER JOIN authors a ON p.author_id = a.id
-            WHERE (@name = '' OR p.name LIKE @nameLike)
-              AND (@category = '' OR c.name LIKE @categoryLike)
-              AND (@author = '' OR a.name LIKE @authorLike)
-              AND (@minPrice IS NULL OR p.price >= @minPrice)
-              AND (@maxPrice IS NULL OR p.price <= @maxPrice)
-            ORDER BY {orderBy} {orderDirection}, p.id ASC
+            SELECT
+                p.id AS id,
+                p.name AS name,
+                c.name AS category_name,
+                a.name AS author_name,
+                p.price AS price
+            {BuildBaseQuery(orderBy, orderDirection)}
+            LIMIT @limit
         ";
 
         // 検索条件をSQLパラメータに設定
         AddSearchParameters(command, name, category, author, minPrice, maxPrice);
+
+        // CSV出力時の最大取得件数を設定
+        command.Parameters.AddWithValue("limit", limit);
 
         using var reader = command.ExecuteReader();
 
         while (reader.Read())
         {
             // DBから取得した行をCSV出力用レスポンスに変換
-            products.Add(new ProductResponse(
-                reader.GetInt32(0),
-                reader.GetString(1),
-                reader.GetString(2),
-                reader.GetString(3),
-                reader.GetInt32(4)
-            ));
+            products.Add(CreateProductResponse(reader));
         }
 
         return products;
@@ -162,7 +142,13 @@ public class ProductRepository : IProductRepository
         // 指定されたIDの書籍詳細を取得
         var command = connection.CreateCommand();
         command.CommandText = @"
-            SELECT p.id, p.name, c.name, a.name, p.price, p.description
+            SELECT
+                p.id AS id,
+                p.name AS name,
+                c.name AS category_name,
+                a.name AS author_name,
+                p.price AS price,
+                p.description AS description
             FROM products p
             INNER JOIN categories c ON p.category_id = c.id
             INNER JOIN authors a ON p.author_id = a.id
@@ -180,13 +166,49 @@ public class ProductRepository : IProductRepository
 
         // DBから取得した行を書籍詳細用レスポンスに変換
         return new ProductDetailResponse(
-            reader.GetInt32(0),
-            reader.GetString(1),
-            reader.GetString(2),
-            reader.GetString(3),
-            reader.GetInt32(4),
-            reader.GetString(5)
+            reader.GetInt32(reader.GetOrdinal("id")),
+            reader.GetString(reader.GetOrdinal("name")),
+            reader.GetString(reader.GetOrdinal("category_name")),
+            reader.GetString(reader.GetOrdinal("author_name")),
+            reader.GetInt32(reader.GetOrdinal("price")),
+            reader.GetString(reader.GetOrdinal("description"))
         );
+    }
+
+    // DBから取得した行を書籍検索結果用レスポンスに変換
+    private static ProductResponse CreateProductResponse(NpgsqlDataReader reader)
+    {
+        return new ProductResponse(
+            reader.GetInt32(reader.GetOrdinal("id")),
+            reader.GetString(reader.GetOrdinal("name")),
+            reader.GetString(reader.GetOrdinal("category_name")),
+            reader.GetString(reader.GetOrdinal("author_name")),
+            reader.GetInt32(reader.GetOrdinal("price"))
+        );
+    }
+
+    // 書籍検索で共通利用するFROM句とWHERE句を取得
+    private static string BuildFromWhereQuery()
+    {
+        return @"
+            FROM products p
+            INNER JOIN categories c ON p.category_id = c.id
+            INNER JOIN authors a ON p.author_id = a.id
+            WHERE (@name = '' OR p.name LIKE @nameLike)
+              AND (@category = '' OR c.name LIKE @categoryLike)
+              AND (@author = '' OR a.name LIKE @authorLike)
+              AND (@minPrice IS NULL OR p.price >= @minPrice)
+              AND (@maxPrice IS NULL OR p.price <= @maxPrice)
+        ";
+    }
+
+    // 書籍検索で共通利用するFROM句、WHERE句、ORDER BY句を取得
+    private static string BuildBaseQuery(string orderBy, string orderDirection)
+    {
+        return $@"
+            {BuildFromWhereQuery()}
+            ORDER BY {orderBy} {orderDirection}, p.id ASC
+        ";
     }
 
     // 書籍検索で共通利用するSQLパラメータを設定
@@ -230,6 +252,8 @@ public class ProductRepository : IProductRepository
     // 画面から指定された並び順をSQLのASC/DESCに変換
     private static string GetOrderDirection(string sortOrder)
     {
-        return sortOrder.ToLower() == "desc" ? "DESC" : "ASC";
+        return string.Equals(sortOrder, "desc", StringComparison.OrdinalIgnoreCase)
+            ? "DESC"
+            : "ASC";
     }
 }
