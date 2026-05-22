@@ -186,13 +186,28 @@ function renderProductTable(products) {
     products.forEach(function (product) {
         const row = document.createElement("tr");
 
-        // 書籍名をクリックすると詳細画面へ遷移
-        row.innerHTML = `
-            <td><a href="detail.html?id=${product.id}">${product.name}</a></td>
-            <td>${product.category}</td>
-            <td>${product.author}</td>
-            <td>${product.price}円</td>
-        `;
+        // 書籍名リンクを作成
+        const nameCell = document.createElement("td");
+        const nameLink = document.createElement("a");
+        nameLink.href = `detail.html?id=${encodeURIComponent(product.id)}`;
+        nameLink.textContent = product.name;
+        nameCell.appendChild(nameLink);
+        row.appendChild(nameCell);
+
+        // カテゴリを設定
+        const categoryCell = document.createElement("td");
+        categoryCell.textContent = product.category;
+        row.appendChild(categoryCell);
+
+        // 著者名を設定
+        const authorCell = document.createElement("td");
+        authorCell.textContent = product.author;
+        row.appendChild(authorCell);
+
+        // 価格を設定
+        const priceCell = document.createElement("td");
+        priceCell.textContent = `${product.price}円`;
+        row.appendChild(priceCell);
 
         table.appendChild(row);
     });

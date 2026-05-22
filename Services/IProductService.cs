@@ -14,7 +14,7 @@ public interface IProductService
         int pageSize
     );
 
-    // CSV出力用に検索条件に一致する書籍を全件取得
+    // CSV出力用に検索条件に一致する書籍を指定件数まで取得
     List<ProductResponse> SearchAll(
         string? name,
         string? category,
