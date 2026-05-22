@@ -12,21 +12,19 @@ public class UserRepository : IUserRepository
             ?? throw new InvalidOperationException("DefaultConnection is not configured");
     }
 
-    public AuthenticatedUser? FindByUsernameAndPassword(string username, string password)
+    public UserAuthInfo? FindByUsername(string username)
     {
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
         var command = connection.CreateCommand();
         command.CommandText = @"
-            SELECT id, username, role
+            SELECT id, username, password_hash, role
             FROM users
             WHERE username = @username
-              AND password = @password
         ";
 
         command.Parameters.AddWithValue("username", username);
-        command.Parameters.AddWithValue("password", password);
 
         using var reader = command.ExecuteReader();
 
@@ -35,10 +33,11 @@ public class UserRepository : IUserRepository
             return null;
         }
 
-        return new AuthenticatedUser(
+        return new UserAuthInfo(
             reader.GetInt32(0),
             reader.GetString(1),
-            reader.GetString(2)
+            reader.GetString(2),
+            reader.GetString(3)
         );
     }
 }

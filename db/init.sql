@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
-    password TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('general', 'admin'))
 );
 
@@ -34,12 +34,12 @@ CREATE TABLE IF NOT EXISTS login_tokens (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
-INSERT INTO users (id, username, password, role) OVERRIDING SYSTEM VALUE
+INSERT INTO users (id, username, password_hash, role) OVERRIDING SYSTEM VALUE
 VALUES
-    (1, 'user01', 'password01', 'general'),
-    (2, 'user02', 'password02', 'general'),
-    (3, 'user03', 'password03', 'general'),
-    (4, 'admin01', 'password01', 'admin')
+    (1, 'user01', 'AQAAAAIAAYagAAAAEC48kKaMuP6zY/RXqTU6PbZTNqUk4r58r10emPQcZhVrhw6Whqo+nQ7OF1/ke58qJw==', 'general'),
+    (2, 'user02', 'AQAAAAIAAYagAAAAEEA7jXawoH6RZDqQF1OeEyp7XaaqyhU7l4SuHsjXKdcGfqblXP4rqwYiXuYma2JNDw==', 'general'),
+    (3, 'user03', 'AQAAAAIAAYagAAAAEANvc67hZn4I5Q6DFvfML14mEYXrNFLnQHe6NsnLvsDyNMZUMUUCJPd5oT3THS9GRA==', 'general'),
+    (4, 'admin01', 'AQAAAAIAAYagAAAAEC48kKaMuP6zY/RXqTU6PbZTNqUk4r58r10emPQcZhVrhw6Whqo+nQ7OF1/ke58qJw==', 'admin')
 ON CONFLICT (username) DO NOTHING;
 
 INSERT INTO categories (id, name)
