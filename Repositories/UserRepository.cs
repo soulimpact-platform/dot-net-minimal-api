@@ -19,7 +19,11 @@ public class UserRepository : IUserRepository
 
         var command = connection.CreateCommand();
         command.CommandText = @"
-            SELECT id, username, password_hash, role
+            SELECT
+                id AS id,
+                username AS username,
+                password_hash AS password_hash,
+                role AS role
             FROM users
             WHERE username = @username
         ";
@@ -34,10 +38,10 @@ public class UserRepository : IUserRepository
         }
 
         return new UserAuthInfo(
-            reader.GetInt32(0),
-            reader.GetString(1),
-            reader.GetString(2),
-            reader.GetString(3)
+            reader.GetInt32(reader.GetOrdinal("id")),
+            reader.GetString(reader.GetOrdinal("username")),
+            reader.GetString(reader.GetOrdinal("password_hash")),
+            reader.GetString(reader.GetOrdinal("role"))
         );
     }
 }

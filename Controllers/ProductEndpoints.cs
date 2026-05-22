@@ -15,9 +15,9 @@ public static class ProductEndpoints
             int? maxPrice,
             string? sortBy,
             string? sortOrder,
-            int page,
-            int pageSize,
-            IProductService productService) =>
+            IProductService productService,
+            int page = 1,
+            int pageSize = 10) =>
         {
             var result = productService.Search(
                 name,
