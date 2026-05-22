@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Identity;
 using System.Text;
 
 Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
@@ -12,6 +13,9 @@ builder.Services.AddScoped<IProductRepository, ProductRepository>();
 // 使用するServiceを登録
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProductService, ProductService>();
+
+// パスワードハッシュ検証用の処理を登録
+builder.Services.AddScoped<IPasswordHasher<UserAuthInfo>, PasswordHasher<UserAuthInfo>>();
 
 var app = builder.Build();
 

@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 
 // ログイン、JWT発行、JWT検証を行うService
@@ -8,6 +9,7 @@ public class AuthService : IAuthService
 {
     private readonly IUserRepository _userRepository;
     private readonly ILoginTokenRepository _loginTokenRepository;
+    private readonly IPasswordHasher<UserAuthInfo> _passwordHasher;
     private readonly string _jwtSecret;
     private readonly string _jwtIssuer;
     private readonly string _jwtAudience;
@@ -15,10 +17,12 @@ public class AuthService : IAuthService
     public AuthService(
         IUserRepository userRepository,
         ILoginTokenRepository loginTokenRepository,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IPasswordHasher<UserAuthInfo> passwordHasher)
     {
         _userRepository = userRepository;
         _loginTokenRepository = loginTokenRepository;
+        _passwordHasher = passwordHasher;
 
         // JWTの署名に使用するシークレットキーを取得
         _jwtSecret = configuration["Jwt:Secret"]
@@ -31,28 +35,43 @@ public class AuthService : IAuthService
 
     public LoginResponse? Login(LoginRequest request)
     {
-        // ユーザー名とパスワードをDBで確認
-        var user = _userRepository.FindByUsernameAndPassword(
-            request.Username,
-            request.Password
-        );
+        // ユーザー名に一致するユーザー情報を取得
+        var user = _userRepository.FindByUsername(request.Username);
 
         if (user is null)
         {
             return null;
         }
 
+        // 入力されたパスワードとDBに保存されているハッシュ値を検証
+        var passwordVerificationResult = _passwordHasher.VerifyHashedPassword(
+            user,
+            user.PasswordHash,
+            request.Password
+        );
+
+        if (passwordVerificationResult == PasswordVerificationResult.Failed)
+        {
+            return null;
+        }
+
+        var authenticatedUser = new AuthenticatedUser(
+            user.Id,
+            user.Username,
+            user.Role
+        );
+
         // JWTの有効期限を設定
         var expiresAt = DateTime.UtcNow.AddHours(1);
 
         // ログインユーザー用のJWTを生成
-        var token = CreateJwtToken(user, expiresAt);
+        var token = CreateJwtToken(authenticatedUser, expiresAt);
 
         // 同一ユーザーの期限切れJWTを削除
-        _loginTokenRepository.DeleteExpired(user.Id);
+        _loginTokenRepository.DeleteExpired(authenticatedUser.Id);
 
         // 発行したJWTをDBに保存
-        _loginTokenRepository.Save(user.Id, token, expiresAt);
+        _loginTokenRepository.Save(authenticatedUser.Id, token, expiresAt);
 
         return new LoginResponse(
             true,
