@@ -32,7 +32,8 @@ public static class ProductEndpoints
             );
 
             return Results.Ok(result);
-        });
+        })
+        .RequireAuthorization();
 
         // 書籍CSVエクスポートAPI
         // 検索条件に一致する書籍をCSV形式で返す
@@ -86,7 +87,8 @@ public static class ProductEndpoints
                 "text/csv; charset=Shift_JIS",
                 "products.csv"
             );
-        });
+        })
+        .RequireAuthorization();
 
         // 書籍詳細API
         // 指定されたIDの書籍詳細を返す
@@ -100,7 +102,8 @@ public static class ProductEndpoints
             }
 
             return Results.Ok(product);
-        });
+        })
+        .RequireAuthorization();
     }
 
     // CSV出力用にリスクのある先頭文字や区切り文字を含む文字列を整形
