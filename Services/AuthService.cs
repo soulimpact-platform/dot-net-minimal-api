@@ -28,9 +28,13 @@ public class AuthService : IAuthService
         _jwtSecret = configuration["Jwt:Secret"]
             ?? throw new InvalidOperationException("JWT Secret is not configured");
 
-        // JWTの発行者と利用者を設定
-        _jwtIssuer = "dot-net-minimal-api";
-        _jwtAudience = "dot-net-minimal-api-user";
+        // JWTの発行者を取得
+        _jwtIssuer = configuration["Jwt:Issuer"]
+            ?? throw new InvalidOperationException("JWT Issuer is not configured");
+
+        // JWTの利用者を取得
+        _jwtAudience = configuration["Jwt:Audience"]
+            ?? throw new InvalidOperationException("JWT Audience is not configured");
     }
 
     public LoginResponse? Login(LoginRequest request)
@@ -80,29 +84,6 @@ public class AuthService : IAuthService
         );
     }
 
-    public AuthCheckResponse? Check(TokenRequest request)
-    {
-        // JWTの署名、有効期限、発行者、利用者を検証
-        var user = ValidateJwtToken(request.Token);
-
-        if (user is null)
-        {
-            return null;
-        }
-
-        // JWTがDBに保存されていて有効期限内か確認
-        if (!_loginTokenRepository.Exists(user.Id, request.Token))
-        {
-            return null;
-        }
-
-        return new AuthCheckResponse(
-            true,
-            user.Username,
-            user.Role
-        );
-    }
-
     public MessageResponse Logout(TokenRequest request)
     {
         // DBに保存しているJWTを削除
@@ -121,7 +102,9 @@ public class AuthService : IAuthService
         {
             new Claim("user_id", user.Id.ToString()),
             new Claim(ClaimTypes.Name, user.Username),
-            new Claim(ClaimTypes.Role, user.Role)
+            new Claim(ClaimTypes.Role, user.Role),
+            new Claim("username", user.Username),
+            new Claim("role", user.Role)
         };
 
         // 秘密鍵を使って署名情報を作成

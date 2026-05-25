@@ -122,6 +122,16 @@ select {
     margin-bottom: 8px;
 }
 
+.paging-button {
+    width: auto;
+    min-width: 64px;
+    padding: 8px 12px;
+}
+
+.paging-area span {
+    margin: 0 12px;
+}
+
 .sort-button {
     width: auto;
     margin-left: 6px;

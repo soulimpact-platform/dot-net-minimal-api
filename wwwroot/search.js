@@ -16,34 +16,12 @@ let currentSortOrder = "asc";
 if (!token) {
     // JWTが保存されていない場合、ログイン画面へ戻る
     window.location.href = "login.html";
-} else {
-    // JWTが有効かサーバー側で確認
-    checkLogin();
 }
 
-// サーバー側でJWTの有効性を確認
-async function checkLogin() {
-    try {
-        const response = await fetch("/api/auth/check", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                token: token
-            })
-        });
-
-        if (!response.ok) {
-            // JWTが無効・期限切れ・DBに存在しない場合はログイン画面へ戻る
-            sessionStorage.removeItem("token");
-            window.location.href = "login.html";
-        }
-    } catch {
-        // 認証確認時に通信エラーが発生した場合はログイン画面へ戻る
-        sessionStorage.removeItem("token");
-        window.location.href = "login.html";
-    }
+function redirectToLogin() {
+    // JWTを削除してログイン画面へ戻る
+    sessionStorage.removeItem("token");
+    window.location.href = "login.html";
 }
 
 // 検索条件を取得
@@ -132,8 +110,18 @@ async function searchProducts() {
     pagingArea.innerHTML = "";
 
     try {
-        // 現在の検索条件とページ番号で書籍検索APIを呼び出し
-        const response = await fetch(createSearchUrl(currentPage));
+        // JWTをAuthorizationヘッダに付与して書籍検索APIを呼び出し
+        const response = await fetch(createSearchUrl(currentPage), {
+            headers: {
+                "Authorization": `Bearer ${token}`
+            }
+        });
+
+        if (response.status === 401) {
+            // JWTが無効・期限切れ・ログアウト済みの場合はログイン画面へ戻る
+            redirectToLogin();
+            return;
+        }
 
         if (!response.ok) {
             // API呼び出しに失敗した場合
@@ -266,6 +254,7 @@ function renderPaging(totalCount, page, pageSize) {
 
     const previousButton = document.createElement("button");
     previousButton.textContent = "前へ";
+    previousButton.className = "paging-button";
     previousButton.disabled = page <= 1;
 
     previousButton.addEventListener("click", async function () {
@@ -278,6 +267,7 @@ function renderPaging(totalCount, page, pageSize) {
 
     const nextButton = document.createElement("button");
     nextButton.textContent = "次へ";
+    nextButton.className = "paging-button";
     nextButton.disabled = page >= totalPages;
 
     nextButton.addEventListener("click", async function () {
@@ -297,8 +287,18 @@ document.getElementById("csvButton").addEventListener("click", async function ()
     message.textContent = "";
 
     try {
-        // 現在の検索条件に一致するCSVを取得
-        const response = await fetch(createCsvUrl());
+        // JWTをAuthorizationヘッダに付与してCSVエクスポートAPIを呼び出し
+        const response = await fetch(createCsvUrl(), {
+            headers: {
+                "Authorization": `Bearer ${token}`
+            }
+        });
+
+        if (response.status === 401) {
+            // JWTが無効・期限切れ・ログアウト済みの場合はログイン画面へ戻る
+            redirectToLogin();
+            return;
+        }
 
         if (!response.ok) {
             const error = await response.json();
