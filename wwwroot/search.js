@@ -43,6 +43,20 @@ function getSearchConditions() {
     };
 }
 
+// 価格の下限と上限の入力内容を確認
+function validatePriceRange(message) {
+    const conditions = getSearchConditions();
+
+    if (conditions.minPrice !== "" &&
+        conditions.maxPrice !== "" &&
+        Number(conditions.minPrice) > Number(conditions.maxPrice)) {
+        message.textContent = "価格の下限は上限以下で指定してください。";
+        return false;
+    }
+
+    return true;
+}
+
 // 検索API用のURLを作成
 function createSearchUrl(page) {
     const conditions = getSearchConditions();
@@ -57,11 +71,11 @@ function createSearchUrl(page) {
         pageSize: pageSize
     });
 
-    if (conditions.minPrice) {
+    if (conditions.minPrice !== "") {
         params.append("minPrice", conditions.minPrice);
     }
 
-    if (conditions.maxPrice) {
+    if (conditions.maxPrice !== "") {
         params.append("maxPrice", conditions.maxPrice);
     }
 
@@ -80,11 +94,11 @@ function createCsvUrl() {
         sortOrder: conditions.sortOrder
     });
 
-    if (conditions.minPrice) {
+    if (conditions.minPrice !== "") {
         params.append("minPrice", conditions.minPrice);
     }
 
-    if (conditions.maxPrice) {
+    if (conditions.maxPrice !== "") {
         params.append("maxPrice", conditions.maxPrice);
     }
 
@@ -108,6 +122,10 @@ async function searchProducts() {
     message.textContent = "";
     resultArea.innerHTML = "";
     pagingArea.innerHTML = "";
+
+    if (!validatePriceRange(message)) {
+        return;
+    }
 
     try {
         // JWTをAuthorizationヘッダに付与して書籍検索APIを呼び出し
@@ -202,8 +220,8 @@ function renderProductTable(products) {
 
     resultArea.appendChild(table);
 
-    // ソートボタンのクリック処理を設定
-    document.querySelectorAll(".sort-button").forEach(function (button) {
+    // 検索結果テーブル内のソートボタンにクリック処理を設定
+    table.querySelectorAll(".sort-button").forEach(function (button) {
         button.addEventListener("click", async function () {
             const sortBy = button.dataset.sortBy;
 
@@ -285,6 +303,10 @@ document.getElementById("csvButton").addEventListener("click", async function ()
 
     // 前回のメッセージをクリア
     message.textContent = "";
+
+    if (!validatePriceRange(message)) {
+        return;
+    }
 
     try {
         // JWTをAuthorizationヘッダに付与してCSVエクスポートAPIを呼び出し

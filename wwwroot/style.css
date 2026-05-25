@@ -69,12 +69,6 @@ button:hover {
     line-height: 1.6;
 }
 
-select {
-    width: 100%;
-    padding: 10px;
-    box-sizing: border-box;
-}
-
 .admin-menu {
     display: none;
     margin-top: 24px;

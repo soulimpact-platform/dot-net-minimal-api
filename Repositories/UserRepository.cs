@@ -17,6 +17,7 @@ public class UserRepository : IUserRepository
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
+        // ユーザー名に一致する認証用ユーザー情報を取得
         var command = connection.CreateCommand();
         command.CommandText = @"
             SELECT
@@ -37,11 +38,31 @@ public class UserRepository : IUserRepository
             return null;
         }
 
+        // DBから取得した行を認証用ユーザー情報に変換
         return new UserAuthInfo(
             reader.GetInt32(reader.GetOrdinal("id")),
             reader.GetString(reader.GetOrdinal("username")),
             reader.GetString(reader.GetOrdinal("password_hash")),
             reader.GetString(reader.GetOrdinal("role"))
         );
+    }
+
+    public void UpdatePasswordHash(int userId, string passwordHash)
+    {
+        using var connection = new NpgsqlConnection(_connectionString);
+        connection.Open();
+
+        // 指定ユーザーのパスワードハッシュを更新
+        var command = connection.CreateCommand();
+        command.CommandText = @"
+            UPDATE users
+            SET password_hash = @passwordHash
+            WHERE id = @userId
+        ";
+
+        command.Parameters.AddWithValue("passwordHash", passwordHash);
+        command.Parameters.AddWithValue("userId", userId);
+
+        command.ExecuteNonQuery();
     }
 }

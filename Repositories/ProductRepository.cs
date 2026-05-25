@@ -194,9 +194,9 @@ public class ProductRepository : IProductRepository
             FROM products p
             INNER JOIN categories c ON p.category_id = c.id
             INNER JOIN authors a ON p.author_id = a.id
-            WHERE (@name = '' OR p.name LIKE @nameLike)
-              AND (@category = '' OR c.name LIKE @categoryLike)
-              AND (@author = '' OR a.name LIKE @authorLike)
+            WHERE (@name = '' OR p.name LIKE @nameLike ESCAPE '!')
+              AND (@category = '' OR c.name LIKE @categoryLike ESCAPE '!')
+              AND (@author = '' OR a.name LIKE @authorLike ESCAPE '!')
               AND (@minPrice IS NULL OR p.price >= @minPrice)
               AND (@maxPrice IS NULL OR p.price <= @maxPrice)
         ";
@@ -221,13 +221,18 @@ public class ProductRepository : IProductRepository
         int? maxPrice
     )
     {
+        // LIKE検索用にワイルドカード文字をエスケープ
+        var escapedName = EscapeLike(name);
+        var escapedCategory = EscapeLike(category);
+        var escapedAuthor = EscapeLike(author);
+
         // 文字列検索条件を設定
         command.Parameters.AddWithValue("name", name);
-        command.Parameters.AddWithValue("nameLike", $"%{name}%");
+        command.Parameters.AddWithValue("nameLike", $"%{escapedName}%");
         command.Parameters.AddWithValue("category", category);
-        command.Parameters.AddWithValue("categoryLike", $"%{category}%");
+        command.Parameters.AddWithValue("categoryLike", $"%{escapedCategory}%");
         command.Parameters.AddWithValue("author", author);
-        command.Parameters.AddWithValue("authorLike", $"%{author}%");
+        command.Parameters.AddWithValue("authorLike", $"%{escapedAuthor}%");
 
         // 価格下限が未入力の場合もinteger型のNULLとして設定
         command.Parameters.Add("minPrice", NpgsqlDbType.Integer).Value =
@@ -236,6 +241,15 @@ public class ProductRepository : IProductRepository
         // 価格上限が未入力の場合もinteger型のNULLとして設定
         command.Parameters.Add("maxPrice", NpgsqlDbType.Integer).Value =
             maxPrice.HasValue ? maxPrice.Value : DBNull.Value;
+    }
+
+    // LIKE検索用に特殊文字をエスケープ
+    private static string EscapeLike(string value)
+    {
+        return value
+            .Replace("!", "!!")
+            .Replace("%", "!%")
+            .Replace("_", "!_");
     }
 
     // 画面から指定された並び替え項目をSQLの列名に変換
