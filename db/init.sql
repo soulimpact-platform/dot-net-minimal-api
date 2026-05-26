@@ -34,6 +34,24 @@ CREATE TABLE IF NOT EXISTS login_tokens (
     FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
+CREATE TABLE IF NOT EXISTS book_loans (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    product_id INTEGER NOT NULL,
+    borrowed_at TIMESTAMPTZ NOT NULL,
+    returned_at TIMESTAMPTZ NULL,
+    CONSTRAINT fk_book_loans_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(id),
+    CONSTRAINT fk_book_loans_product
+        FOREIGN KEY (product_id)
+        REFERENCES products(id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_book_loans_active_product
+ON book_loans(product_id)
+WHERE returned_at IS NULL;
+
 INSERT INTO users (id, username, password_hash, role) OVERRIDING SYSTEM VALUE
 VALUES
     (1, 'user01', 'AQAAAAIAAYagAAAAEC48kKaMuP6zY/RXqTU6PbZTNqUk4r58r10emPQcZhVrhw6Whqo+nQ7OF1/ke58qJw==', 'general'),
