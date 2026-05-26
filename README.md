@@ -157,7 +157,7 @@ POST /api/login
 POST /api/logout
 ```
 
-DBに保存されているJWTを削除します。
+Authorization ヘッダで認証されたユーザー自身のJWTをDBから削除します。
 
 ### 書籍検索API
 

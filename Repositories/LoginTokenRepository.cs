@@ -30,10 +30,10 @@ public class LoginTokenRepository : ILoginTokenRepository
         command.ExecuteNonQuery();
     }
 
-    public bool Exists(int userId, string token)
+    public async Task<bool> ExistsAsync(int userId, string token)
     {
-        using var connection = new NpgsqlConnection(_connectionString);
-        connection.Open();
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
 
         var command = connection.CreateCommand();
         command.CommandText = @"
@@ -47,25 +47,9 @@ public class LoginTokenRepository : ILoginTokenRepository
         command.Parameters.AddWithValue("userId", userId);
         command.Parameters.AddWithValue("token", token);
 
-        var count = (long)command.ExecuteScalar()!;
+        var count = (long)(await command.ExecuteScalarAsync())!;
 
         return count > 0;
-    }
-
-    public void Delete(string token)
-    {
-        using var connection = new NpgsqlConnection(_connectionString);
-        connection.Open();
-
-        var command = connection.CreateCommand();
-        command.CommandText = @"
-            DELETE FROM login_tokens
-            WHERE token = @token
-        ";
-
-        command.Parameters.AddWithValue("token", token);
-
-        command.ExecuteNonQuery();
     }
 
     public void DeleteExpired(int userId)
@@ -81,6 +65,25 @@ public class LoginTokenRepository : ILoginTokenRepository
         ";
 
         command.Parameters.AddWithValue("userId", userId);
+
+        command.ExecuteNonQuery();
+    }
+
+    public void DeleteByUserAndToken(int userId, string token)
+    {
+        using var connection = new NpgsqlConnection(_connectionString);
+        connection.Open();
+
+        // 認証されたユーザー自身のJWTのみ削除
+        var command = connection.CreateCommand();
+        command.CommandText = @"
+            DELETE FROM login_tokens
+            WHERE user_id = @userId
+              AND token = @token
+        ";
+
+        command.Parameters.AddWithValue("userId", userId);
+        command.Parameters.AddWithValue("token", token);
 
         command.ExecuteNonQuery();
     }
