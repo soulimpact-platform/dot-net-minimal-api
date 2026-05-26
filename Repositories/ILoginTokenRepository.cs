@@ -2,14 +2,14 @@
 public interface ILoginTokenRepository
 {
     // 発行したJWTをDBに保存
-    void Save(string username, string token, DateTime expiresAt);
+    void Save(int userId, string token, DateTime expiresAt);
 
-    // JWTがDBに保存されていて有効期限内か確認
-    bool Exists(string username, string token);
+    // JWTがDBに保存されていて有効期限内か非同期で確認
+    Task<bool> ExistsAsync(int userId, string token);
 
-    // ログアウト時にJWTを削除
-    void Delete(string token);
+    // 指定ユーザーのJWTのみ削除
+    void DeleteByUserAndToken(int userId, string token);
 
     // 指定ユーザーの期限切れJWTを削除
-    void DeleteExpired(string username);
+    void DeleteExpired(int userId);
 }

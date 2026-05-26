@@ -1,6 +1,9 @@
-// ユーザー情報の取得処理を定義するインターフェース
+// ユーザー情報の取得・更新処理を定義するインターフェース
 public interface IUserRepository
 {
-    // ユーザー名とパスワードに一致するユーザー名を取得
-    string? FindUsername(string username, string password);
+    // ユーザー名に一致するログイン認証用ユーザー情報を取得
+    UserAuthInfo? FindByUsername(string username);
+
+    // 指定ユーザーのパスワードハッシュを更新
+    void UpdatePasswordHash(int userId, string passwordHash);
 }

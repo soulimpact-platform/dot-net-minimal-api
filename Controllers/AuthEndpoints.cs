@@ -17,27 +17,34 @@ public static class AuthEndpoints
             return Results.Ok(result);
         });
 
-        // 認証チェックAPI
-        // 画面側から送信されたJWTを検証し、ログイン状態を確認
-        app.MapPost("/api/auth/check", (TokenRequest request, IAuthService authService) =>
+        // ログアウトAPI
+        // 認証済みユーザー自身のJWTをDBから削除
+        app.MapPost("/api/logout", (HttpContext context, IAuthService authService) =>
         {
-            var result = authService.Check(request);
+            var userIdText = context.User.FindFirst("user_id")?.Value;
 
-            if (result is null)
+            if (!int.TryParse(userIdText, out var userId))
             {
                 return Results.Unauthorized();
             }
 
-            return Results.Ok(result);
-        });
+            var authorizationHeader = context.Request.Headers.Authorization.ToString();
 
-        // ログアウトAPI
-        // DBに保存されているJWTを削除
-        app.MapPost("/api/logout", (TokenRequest request, IAuthService authService) =>
-        {
-            var result = authService.Logout(request);
+            var token = authorizationHeader.Replace(
+                "Bearer ",
+                "",
+                StringComparison.OrdinalIgnoreCase
+            );
+
+            if (string.IsNullOrEmpty(token))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = authService.Logout(userId, token);
 
             return Results.Ok(result);
-        });
+        })
+        .RequireAuthorization();
     }
 }

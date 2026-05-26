@@ -5,33 +5,38 @@ if (!token) {
     // JWTが保存されていない場合、ログイン画面へ戻る
     window.location.href = "login.html";
 } else {
-    // JWTが有効かサーバー側で確認
-    checkLogin();
+    // JWTのpayloadからユーザー情報を取得
+    const payload = decodeJwtPayload(token);
+
+    // JWTから取得したユーザー名を画面に表示
+    document.getElementById("username").textContent = payload.username;
+
+    // 管理者ユーザの場合のみ管理者メニューを表示
+    if (payload.role === "admin") {
+        document.getElementById("adminMenu").style.display = "block";
+    }
 }
 
-// サーバー側でJWTの有効性を確認
-async function checkLogin() {
-    const response = await fetch("/api/auth/check", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            token: token
-        })
-    });
+// JWTを削除してログイン画面へ戻る
+function redirectToLogin() {
+    sessionStorage.removeItem("token");
+    window.location.href = "login.html";
+}
 
-    if (!response.ok) {
-        // JWTが無効・期限切れ・DBに存在しない場合はログイン画面へ戻る
-        sessionStorage.removeItem("token");
-        window.location.href = "login.html";
-        return;
-    }
+// JWTのpayload部分をデコード
+function decodeJwtPayload(token) {
+    const payload = token.split(".")[1];
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const json = decodeURIComponent(
+        atob(base64)
+            .split("")
+            .map(function (char) {
+                return "%" + ("00" + char.charCodeAt(0).toString(16)).slice(-2);
+            })
+            .join("")
+    );
 
-    const data = await response.json();
-
-    // チェックAPIから返されたユーザー名を画面に表示
-    document.getElementById("username").textContent = data.username;
+    return JSON.parse(json);
 }
 
 document.getElementById("searchPageButton").addEventListener("click", function () {
@@ -39,16 +44,23 @@ document.getElementById("searchPageButton").addEventListener("click", function (
     window.location.href = "search.html";
 });
 
+document.getElementById("userManageButton").addEventListener("click", function () {
+    // ユーザ管理機能は後続対応
+    alert("ユーザ管理機能は現在未実装です。");
+});
+
+document.getElementById("productManageButton").addEventListener("click", function () {
+    // 書籍管理機能は後続対応
+    alert("書籍管理機能は現在未実装です。");
+});
+
 document.getElementById("logoutButton").addEventListener("click", async function () {
-    // サーバー側でDBに保存しているJWTを削除
+    // JWTをAuthorizationヘッダに付与してログアウトAPIを呼び出し
     await fetch("/api/logout", {
         method: "POST",
         headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            token: token
-        })
+            "Authorization": `Bearer ${token}`
+        }
     });
 
     // ブラウザ側に保存しているJWTを削除

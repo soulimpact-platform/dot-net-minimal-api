@@ -12,47 +12,47 @@ public class LoginTokenRepository : ILoginTokenRepository
             ?? throw new InvalidOperationException("DefaultConnection is not configured");
     }
 
-    public void Save(string username, string token, DateTime expiresAt)
+    public void Save(int userId, string token, DateTime expiresAt)
     {
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
         var command = connection.CreateCommand();
         command.CommandText = @"
-            INSERT INTO login_tokens (username, token, expires_at)
-            VALUES (@username, @token, @expiresAt);
+            INSERT INTO login_tokens (user_id, token, expires_at)
+            VALUES (@userId, @token, @expiresAt);
         ";
 
-        command.Parameters.AddWithValue("username", username);
+        command.Parameters.AddWithValue("userId", userId);
         command.Parameters.AddWithValue("token", token);
         command.Parameters.AddWithValue("expiresAt", expiresAt);
 
         command.ExecuteNonQuery();
     }
 
-    public bool Exists(string username, string token)
+    public async Task<bool> ExistsAsync(int userId, string token)
     {
-        using var connection = new NpgsqlConnection(_connectionString);
-        connection.Open();
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync();
 
         var command = connection.CreateCommand();
         command.CommandText = @"
             SELECT COUNT(*)
             FROM login_tokens
-            WHERE username = @username
+            WHERE user_id = @userId
               AND token = @token
               AND expires_at > NOW()
         ";
 
-        command.Parameters.AddWithValue("username", username);
+        command.Parameters.AddWithValue("userId", userId);
         command.Parameters.AddWithValue("token", token);
 
-        var count = (long)command.ExecuteScalar()!;
+        var count = (long)(await command.ExecuteScalarAsync())!;
 
         return count > 0;
     }
 
-    public void Delete(string token)
+    public void DeleteExpired(int userId)
     {
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
@@ -60,27 +60,30 @@ public class LoginTokenRepository : ILoginTokenRepository
         var command = connection.CreateCommand();
         command.CommandText = @"
             DELETE FROM login_tokens
-            WHERE token = @token
+            WHERE user_id = @userId
+              AND expires_at <= NOW()
         ";
 
-        command.Parameters.AddWithValue("token", token);
+        command.Parameters.AddWithValue("userId", userId);
 
         command.ExecuteNonQuery();
     }
 
-    public void DeleteExpired(string username)
+    public void DeleteByUserAndToken(int userId, string token)
     {
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
+        // 認証されたユーザー自身のJWTのみ削除
         var command = connection.CreateCommand();
         command.CommandText = @"
             DELETE FROM login_tokens
-            WHERE username = @username
-              AND expires_at <= NOW()
+            WHERE user_id = @userId
+              AND token = @token
         ";
 
-        command.Parameters.AddWithValue("username", username);
+        command.Parameters.AddWithValue("userId", userId);
+        command.Parameters.AddWithValue("token", token);
 
         command.ExecuteNonQuery();
     }

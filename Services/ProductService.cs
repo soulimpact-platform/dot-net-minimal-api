@@ -8,12 +8,57 @@ public class ProductService : IProductService
         _productRepository = productRepository;
     }
 
-    public List<ProductResponse> Search(string? name, string? category)
+    public ProductSearchResultResponse Search(
+        string? name,
+        string? category,
+        string? author,
+        int? minPrice,
+        int? maxPrice,
+        string? sortBy,
+        string? sortOrder,
+        int page,
+        int pageSize
+    )
     {
-        // 未入力の検索条件は空文字に変換
+        // ページ番号が不正な場合は1ページ目に補正
+        var validPage = page < 1 ? 1 : page;
+
+        // 1ページ件数が不正な場合は10件、上限超過時は100件に補正
+        var validPageSize = pageSize < 1 ? 10 : Math.Min(pageSize, 100);
+
         return _productRepository.Search(
             name ?? string.Empty,
-            category ?? string.Empty
+            category ?? string.Empty,
+            author ?? string.Empty,
+            minPrice,
+            maxPrice,
+            sortBy ?? "id",
+            sortOrder ?? "asc",
+            validPage,
+            validPageSize
+        );
+    }
+
+    public List<ProductResponse> SearchAll(
+        string? name,
+        string? category,
+        string? author,
+        int? minPrice,
+        int? maxPrice,
+        string? sortBy,
+        string? sortOrder,
+        int limit
+    )
+    {
+        return _productRepository.SearchAll(
+            name ?? string.Empty,
+            category ?? string.Empty,
+            author ?? string.Empty,
+            minPrice,
+            maxPrice,
+            sortBy ?? "id",
+            sortOrder ?? "asc",
+            limit
         );
     }
 
