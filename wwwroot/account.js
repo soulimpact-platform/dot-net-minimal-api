@@ -59,12 +59,8 @@ document.getElementById("logoutButton").addEventListener("click", async function
     await fetch("/api/logout", {
         method: "POST",
         headers: {
-            "Content-Type": "application/json",
             "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({
-            token: token
-        })
+        }
     });
 
     // ブラウザ側に保存しているJWTを削除

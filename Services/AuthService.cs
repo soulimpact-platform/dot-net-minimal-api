@@ -91,10 +91,10 @@ public class AuthService : IAuthService
         );
     }
 
-    public MessageResponse Logout(TokenRequest request)
+    public MessageResponse Logout(int userId, string token)
     {
-        // DBに保存しているJWTを削除
-        _loginTokenRepository.Delete(request.Token);
+        // 認証済みユーザー自身のJWTのみ削除
+        _loginTokenRepository.DeleteByUserAndToken(userId, token);
 
         return new MessageResponse(
             true,
@@ -108,8 +108,6 @@ public class AuthService : IAuthService
         var claims = new[]
         {
             new Claim("user_id", user.Id.ToString()),
-            new Claim(ClaimTypes.Name, user.Username),
-            new Claim(ClaimTypes.Role, user.Role),
             new Claim("username", user.Username),
             new Claim("role", user.Role)
         };

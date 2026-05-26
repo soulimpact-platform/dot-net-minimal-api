@@ -55,12 +55,16 @@ builder.Services
             ValidateLifetime = true,
 
             // 有効期限のずれを許容しない
-            ClockSkew = TimeSpan.Zero
+            ClockSkew = TimeSpan.Zero,
+
+            // JWT内の短いクレーム名をユーザー名・ロールとして扱う
+            NameClaimType = "username",
+            RoleClaimType = "role"
         };
 
         options.Events = new JwtBearerEvents
         {
-            OnTokenValidated = ctx =>
+            OnTokenValidated = async ctx =>
             {
                 // 標準のJWT検証はここまでで通過済み。続けてDB照合
                 var repo = ctx.HttpContext.RequestServices.GetRequiredService<ILoginTokenRepository>();
@@ -70,17 +74,15 @@ builder.Services
                 if (!int.TryParse(userIdText, out var userId))
                 {
                     ctx.Fail("Invalid user_id");
-                    return Task.CompletedTask;
+                    return;
                 }
 
                 var token = (ctx.SecurityToken as JsonWebToken)?.EncodedToken ?? "";
 
-                if (string.IsNullOrEmpty(token) || !repo.Exists(userId, token))
+                if (string.IsNullOrEmpty(token) || !await repo.ExistsAsync(userId, token))
                 {
                     ctx.Fail("Token revoked");
                 }
-
-                return Task.CompletedTask;
             }
         };
     });
