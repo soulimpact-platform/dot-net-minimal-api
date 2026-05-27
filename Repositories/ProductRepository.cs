@@ -134,6 +134,38 @@ public class ProductRepository : IProductRepository
         return products;
     }
 
+    public List<ProductResponse> FindAll()
+    {
+        var products = new List<ProductResponse>();
+
+        using var connection = new NpgsqlConnection(_connectionString);
+        connection.Open();
+
+        // 管理者向けに書籍一覧を取得
+        var command = connection.CreateCommand();
+        command.CommandText = @"
+            SELECT
+                p.id AS id,
+                p.name AS name,
+                c.name AS category_name,
+                a.name AS author_name,
+                p.price AS price
+            FROM products p
+            INNER JOIN categories c ON p.category_id = c.id
+            INNER JOIN authors a ON p.author_id = a.id
+            ORDER BY p.id ASC
+        ";
+
+        using var reader = command.ExecuteReader();
+
+        while (reader.Read())
+        {
+            products.Add(CreateProductResponse(reader));
+        }
+
+        return products;
+    }
+
     public ProductDetailResponse? FindById(int id)
     {
         using var connection = new NpgsqlConnection(_connectionString);
@@ -165,14 +197,106 @@ public class ProductRepository : IProductRepository
         }
 
         // DBから取得した行を書籍詳細用レスポンスに変換
-        return new ProductDetailResponse(
-            reader.GetInt32(reader.GetOrdinal("id")),
-            reader.GetString(reader.GetOrdinal("name")),
-            reader.GetString(reader.GetOrdinal("category_name")),
-            reader.GetString(reader.GetOrdinal("author_name")),
-            reader.GetInt32(reader.GetOrdinal("price")),
-            reader.GetString(reader.GetOrdinal("description"))
-        );
+        return CreateProductDetailResponse(reader);
+    }
+
+    public void Create(string name, string category, string author, int price, string description)
+    {
+        using var connection = new NpgsqlConnection(_connectionString);
+        connection.Open();
+
+        using var transaction = connection.BeginTransaction();
+
+        try
+        {
+            // カテゴリ・著者を取得し、存在しない場合は追加
+            var categoryId = GetOrCreateCategoryId(connection, transaction, category);
+            var authorId = GetOrCreateAuthorId(connection, transaction, author);
+
+            // 書籍を追加
+            var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = @"
+                INSERT INTO products (name, category_id, author_id, price, description)
+                VALUES (@name, @categoryId, @authorId, @price, @description)
+            ";
+
+            command.Parameters.AddWithValue("name", name);
+            command.Parameters.AddWithValue("categoryId", categoryId);
+            command.Parameters.AddWithValue("authorId", authorId);
+            command.Parameters.AddWithValue("price", price);
+            command.Parameters.AddWithValue("description", description);
+
+            command.ExecuteNonQuery();
+
+            transaction.Commit();
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+    }
+
+    public void Update(int id, string name, string category, string author, int price, string description)
+    {
+        using var connection = new NpgsqlConnection(_connectionString);
+        connection.Open();
+
+        using var transaction = connection.BeginTransaction();
+
+        try
+        {
+            // カテゴリ・著者を取得し、存在しない場合は追加
+            var categoryId = GetOrCreateCategoryId(connection, transaction, category);
+            var authorId = GetOrCreateAuthorId(connection, transaction, author);
+
+            // 書籍を更新
+            var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = @"
+                UPDATE products
+                SET name = @name,
+                    category_id = @categoryId,
+                    author_id = @authorId,
+                    price = @price,
+                    description = @description
+                WHERE id = @id
+            ";
+
+            command.Parameters.AddWithValue("id", id);
+            command.Parameters.AddWithValue("name", name);
+            command.Parameters.AddWithValue("categoryId", categoryId);
+            command.Parameters.AddWithValue("authorId", authorId);
+            command.Parameters.AddWithValue("price", price);
+            command.Parameters.AddWithValue("description", description);
+
+            command.ExecuteNonQuery();
+
+            transaction.Commit();
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+    }
+
+    public void Delete(int id)
+    {
+        using var connection = new NpgsqlConnection(_connectionString);
+        connection.Open();
+
+        // 書籍を削除
+        var command = connection.CreateCommand();
+        command.CommandText = @"
+            DELETE FROM products
+            WHERE id = @id
+        ";
+
+        command.Parameters.AddWithValue("id", id);
+
+        command.ExecuteNonQuery();
     }
 
     // DBから取得した行を書籍検索結果用レスポンスに変換
@@ -184,6 +308,19 @@ public class ProductRepository : IProductRepository
             reader.GetString(reader.GetOrdinal("category_name")),
             reader.GetString(reader.GetOrdinal("author_name")),
             reader.GetInt32(reader.GetOrdinal("price"))
+        );
+    }
+
+    // DBから取得した行を書籍詳細用レスポンスに変換
+    private static ProductDetailResponse CreateProductDetailResponse(NpgsqlDataReader reader)
+    {
+        return new ProductDetailResponse(
+            reader.GetInt32(reader.GetOrdinal("id")),
+            reader.GetString(reader.GetOrdinal("name")),
+            reader.GetString(reader.GetOrdinal("category_name")),
+            reader.GetString(reader.GetOrdinal("author_name")),
+            reader.GetInt32(reader.GetOrdinal("price")),
+            reader.GetString(reader.GetOrdinal("description"))
         );
     }
 
@@ -241,6 +378,80 @@ public class ProductRepository : IProductRepository
         // 価格上限が未入力の場合もinteger型のNULLとして設定
         command.Parameters.Add("maxPrice", NpgsqlDbType.Integer).Value =
             maxPrice.HasValue ? maxPrice.Value : DBNull.Value;
+    }
+
+    // カテゴリ名からカテゴリIDを取得し、存在しない場合は追加
+    private static int GetOrCreateCategoryId(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        string category
+    )
+    {
+        var selectCommand = connection.CreateCommand();
+        selectCommand.Transaction = transaction;
+        selectCommand.CommandText = @"
+            SELECT id
+            FROM categories
+            WHERE name = @name
+        ";
+
+        selectCommand.Parameters.AddWithValue("name", category);
+
+        var existingId = selectCommand.ExecuteScalar();
+
+        if (existingId is not null)
+        {
+            return Convert.ToInt32(existingId);
+        }
+
+        var insertCommand = connection.CreateCommand();
+        insertCommand.Transaction = transaction;
+        insertCommand.CommandText = @"
+            INSERT INTO categories (id, name)
+            VALUES ((SELECT COALESCE(MAX(id), 0) + 1 FROM categories), @name)
+            RETURNING id
+        ";
+
+        insertCommand.Parameters.AddWithValue("name", category);
+
+        return Convert.ToInt32(insertCommand.ExecuteScalar());
+    }
+
+    // 著者名から著者IDを取得し、存在しない場合は追加
+    private static int GetOrCreateAuthorId(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        string author
+    )
+    {
+        var selectCommand = connection.CreateCommand();
+        selectCommand.Transaction = transaction;
+        selectCommand.CommandText = @"
+            SELECT id
+            FROM authors
+            WHERE name = @name
+        ";
+
+        selectCommand.Parameters.AddWithValue("name", author);
+
+        var existingId = selectCommand.ExecuteScalar();
+
+        if (existingId is not null)
+        {
+            return Convert.ToInt32(existingId);
+        }
+
+        var insertCommand = connection.CreateCommand();
+        insertCommand.Transaction = transaction;
+        insertCommand.CommandText = @"
+            INSERT INTO authors (id, name)
+            VALUES ((SELECT COALESCE(MAX(id), 0) + 1 FROM authors), @name)
+            RETURNING id
+        ";
+
+        insertCommand.Parameters.AddWithValue("name", author);
+
+        return Convert.ToInt32(insertCommand.ExecuteScalar());
     }
 
     // LIKE検索用に特殊文字をエスケープ

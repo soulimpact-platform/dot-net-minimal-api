@@ -1,4 +1,4 @@
-// 書籍検索、書籍詳細取得を行うService
+// 書籍検索、書籍詳細取得、書籍管理を行うService
 public class ProductService : IProductService
 {
     private readonly IProductRepository _productRepository;
@@ -62,9 +62,113 @@ public class ProductService : IProductService
         );
     }
 
+    public List<ProductResponse> GetAll()
+    {
+        // 管理者向けの書籍一覧を取得
+        return _productRepository.FindAll();
+    }
+
     public ProductDetailResponse? FindById(int id)
     {
         // 指定されたIDの書籍詳細を取得
         return _productRepository.FindById(id);
+    }
+
+    public MessageResponse Create(ProductRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            return new MessageResponse(false, "書籍名を入力してください。");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Category))
+        {
+            return new MessageResponse(false, "カテゴリを入力してください。");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Author))
+        {
+            return new MessageResponse(false, "著者名を入力してください。");
+        }
+
+        if (request.Price < 0)
+        {
+            return new MessageResponse(false, "価格は0以上で入力してください。");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Description))
+        {
+            return new MessageResponse(false, "説明を入力してください。");
+        }
+
+        _productRepository.Create(
+            request.Name,
+            request.Category,
+            request.Author,
+            request.Price,
+            request.Description
+        );
+
+        return new MessageResponse(true, "書籍を追加しました。");
+    }
+
+    public MessageResponse Update(int id, ProductRequest request)
+    {
+        var product = _productRepository.FindById(id);
+
+        if (product is null)
+        {
+            return new MessageResponse(false, "書籍が見つかりません。");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            return new MessageResponse(false, "書籍名を入力してください。");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Category))
+        {
+            return new MessageResponse(false, "カテゴリを入力してください。");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Author))
+        {
+            return new MessageResponse(false, "著者名を入力してください。");
+        }
+
+        if (request.Price < 0)
+        {
+            return new MessageResponse(false, "価格は0以上で入力してください。");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Description))
+        {
+            return new MessageResponse(false, "説明を入力してください。");
+        }
+
+        _productRepository.Update(
+            id,
+            request.Name,
+            request.Category,
+            request.Author,
+            request.Price,
+            request.Description
+        );
+
+        return new MessageResponse(true, "書籍を更新しました。");
+    }
+
+    public MessageResponse Delete(int id)
+    {
+        var product = _productRepository.FindById(id);
+
+        if (product is null)
+        {
+            return new MessageResponse(false, "書籍が見つかりません。");
+        }
+
+        _productRepository.Delete(id);
+
+        return new MessageResponse(true, "書籍を削除しました。");
     }
 }

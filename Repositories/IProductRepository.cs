@@ -1,4 +1,4 @@
-// 書籍情報の取得処理を定義するインターフェース
+// 書籍情報の取得・更新処理を定義するインターフェース
 public interface IProductRepository
 {
     // 書籍名・カテゴリ・著者名・価格を条件に書籍を検索
@@ -26,6 +26,18 @@ public interface IProductRepository
         int limit
     );
 
+    // 管理者向けの書籍一覧を取得
+    List<ProductResponse> FindAll();
+
     // 指定されたIDの書籍詳細を取得
     ProductDetailResponse? FindById(int id);
+
+    // 書籍を追加
+    void Create(string name, string category, string author, int price, string description);
+
+    // 書籍を更新
+    void Update(int id, string name, string category, string author, int price, string description);
+
+    // 書籍を削除
+    void Delete(int id);
 }

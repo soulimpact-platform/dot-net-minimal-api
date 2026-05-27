@@ -50,8 +50,8 @@ document.getElementById("userManageButton").addEventListener("click", function (
 });
 
 document.getElementById("productManageButton").addEventListener("click", function () {
-    // 書籍管理機能は後続対応
-    alert("書籍管理機能は現在未実装です。");
+    // 書籍管理画面へ遷移
+    window.location.href = "product-list.html";
 });
 
 document.getElementById("logoutButton").addEventListener("click", async function () {

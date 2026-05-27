@@ -104,6 +104,71 @@ public static class ProductEndpoints
             return Results.Ok(product);
         })
         .RequireAuthorization();
+
+        // 管理者向け書籍一覧取得API
+        app.MapGet("/api/admin/products", (IProductService productService) =>
+        {
+            var products = productService.GetAll();
+
+            return Results.Ok(products);
+        })
+        .RequireAuthorization(policy => policy.RequireRole("admin"));
+
+        // 管理者向け書籍詳細取得API
+        app.MapGet("/api/admin/products/{id:int}", (int id, IProductService productService) =>
+        {
+            var product = productService.FindById(id);
+
+            if (product is null)
+            {
+                return Results.NotFound(new MessageResponse(false, "書籍が見つかりません。"));
+            }
+
+            return Results.Ok(product);
+        })
+        .RequireAuthorization(policy => policy.RequireRole("admin"));
+
+        // 管理者向け書籍追加API
+        app.MapPost("/api/admin/products", (ProductRequest request, IProductService productService) =>
+        {
+            var result = productService.Create(request);
+
+            if (!result.Success)
+            {
+                return Results.BadRequest(result);
+            }
+
+            return Results.Ok(result);
+        })
+        .RequireAuthorization(policy => policy.RequireRole("admin"));
+
+        // 管理者向け書籍更新API
+        app.MapPut("/api/admin/products/{id:int}", (int id, ProductRequest request, IProductService productService) =>
+        {
+            var result = productService.Update(id, request);
+
+            if (!result.Success)
+            {
+                return Results.BadRequest(result);
+            }
+
+            return Results.Ok(result);
+        })
+        .RequireAuthorization(policy => policy.RequireRole("admin"));
+
+        // 管理者向け書籍削除API
+        app.MapDelete("/api/admin/products/{id:int}", (int id, IProductService productService) =>
+        {
+            var result = productService.Delete(id);
+
+            if (!result.Success)
+            {
+                return Results.BadRequest(result);
+            }
+
+            return Results.Ok(result);
+        })
+        .RequireAuthorization(policy => policy.RequireRole("admin"));
     }
 
     // CSV出力用にリスクのある先頭文字や区切り文字を含む文字列を整形
