@@ -1,0 +1,139 @@
+using Microsoft.AspNetCore.Identity;
+
+// ユーザー管理処理を行うService
+public class UserService : IUserService
+{
+    private readonly IUserRepository _userRepository;
+    private readonly IPasswordHasher<UserAuthInfo> _passwordHasher;
+
+    public UserService(
+        IUserRepository userRepository,
+        IPasswordHasher<UserAuthInfo> passwordHasher)
+    {
+        _userRepository = userRepository;
+        _passwordHasher = passwordHasher;
+    }
+
+    public List<UserResponse> GetAll()
+    {
+        // ユーザー一覧を取得
+        return _userRepository.FindAll();
+    }
+
+    public UserResponse? GetById(int id)
+    {
+        // IDに一致するユーザー情報を取得
+        return _userRepository.FindById(id);
+    }
+
+    public MessageResponse Create(UserRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Username))
+        {
+            return new MessageResponse(false, "ユーザー名を入力してください。");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Password))
+        {
+            return new MessageResponse(false, "パスワードを入力してください。");
+        }
+
+        if (!IsValidRole(request.Role))
+        {
+            return new MessageResponse(false, "ロールが不正です。");
+        }
+
+        if (_userRepository.ExistsByUsername(request.Username))
+        {
+            return new MessageResponse(false, "同じユーザー名が既に存在します。");
+        }
+
+        var dummyUser = new UserAuthInfo(
+            0,
+            request.Username,
+            "",
+            request.Role
+        );
+
+        // パスワードをハッシュ化
+        var passwordHash = _passwordHasher.HashPassword(dummyUser, request.Password);
+
+        // ユーザーを追加
+        _userRepository.Create(request.Username, passwordHash, request.Role);
+
+        return new MessageResponse(true, "ユーザーを追加しました。");
+    }
+
+    public MessageResponse Update(int id, UserRequest request)
+    {
+        var user = _userRepository.FindById(id);
+
+        if (user is null)
+        {
+            return new MessageResponse(false, "ユーザーが見つかりません。");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Username))
+        {
+            return new MessageResponse(false, "ユーザー名を入力してください。");
+        }
+
+        if (!IsValidRole(request.Role))
+        {
+            return new MessageResponse(false, "ロールが不正です。");
+        }
+
+        if (_userRepository.ExistsByUsernameExceptId(request.Username, id))
+        {
+            return new MessageResponse(false, "同じユーザー名が既に存在します。");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Password))
+        {
+            // パスワード未入力の場合は、ユーザー名とロールのみ更新
+            _userRepository.Update(id, request.Username, request.Role);
+        }
+        else
+        {
+            var dummyUser = new UserAuthInfo(
+                id,
+                request.Username,
+                "",
+                request.Role
+            );
+
+            // 入力されたパスワードをハッシュ化して更新
+            var passwordHash = _passwordHasher.HashPassword(dummyUser, request.Password);
+
+            _userRepository.UpdateWithPassword(
+                id,
+                request.Username,
+                passwordHash,
+                request.Role
+            );
+        }
+
+        return new MessageResponse(true, "ユーザーを更新しました。");
+    }
+
+    public MessageResponse Delete(int id)
+    {
+        var user = _userRepository.FindById(id);
+
+        if (user is null)
+        {
+            return new MessageResponse(false, "ユーザーが見つかりません。");
+        }
+
+        // ユーザーを削除
+        _userRepository.Delete(id);
+
+        return new MessageResponse(true, "ユーザーを削除しました。");
+    }
+
+    // 許可されたロールか確認
+    private static bool IsValidRole(string role)
+    {
+        return role == "general" || role == "admin";
+    }
+}

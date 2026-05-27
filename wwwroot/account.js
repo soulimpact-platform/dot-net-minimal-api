@@ -45,8 +45,8 @@ document.getElementById("searchPageButton").addEventListener("click", function (
 });
 
 document.getElementById("userManageButton").addEventListener("click", function () {
-    // ユーザ管理機能は後続対応
-    alert("ユーザ管理機能は現在未実装です。");
+    // ユーザ管理画面へ遷移
+    window.location.href = "user-list.html";
 });
 
 document.getElementById("productManageButton").addEventListener("click", function () {
