@@ -4,15 +4,51 @@ const token = sessionStorage.getItem("token");
 const message = document.getElementById("message");
 const resultArea = document.getElementById("resultArea");
 
-if (!token) {
-    // JWTが保存されていない場合、ログイン画面へ戻る
-    window.location.href = "login.html";
-}
-
 // JWTを削除してログイン画面へ戻る
 function redirectToLogin() {
     sessionStorage.removeItem("token");
     window.location.href = "login.html";
+}
+
+// JWTのpayload部分をデコード
+function decodeJwtPayload(token) {
+    const payload = token.split(".")[1];
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const json = decodeURIComponent(
+        atob(base64)
+            .split("")
+            .map(function (char) {
+                return "%" + ("00" + char.charCodeAt(0).toString(16)).slice(-2);
+            })
+            .join("")
+    );
+
+    return JSON.parse(json);
+}
+
+// 管理者権限があるか確認
+function hasAdminRole() {
+    if (!token) {
+        // JWTが保存されていない場合、ログイン画面へ戻る
+        redirectToLogin();
+        return false;
+    }
+
+    try {
+        const payload = decodeJwtPayload(token);
+
+        if (payload.role !== "admin") {
+            // 管理者以外の場合はアカウント表示画面へ戻る
+            window.location.href = "account.html";
+            return false;
+        }
+
+        return true;
+    } catch {
+        // JWTの形式が不正な場合はログイン画面へ戻る
+        redirectToLogin();
+        return false;
+    }
 }
 
 // 書籍一覧を取得して表示
@@ -180,5 +216,7 @@ document.getElementById("backButton").addEventListener("click", function () {
     window.location.href = "account.html";
 });
 
-// 初期表示時に書籍一覧を取得
-loadProducts();
+// 管理者の場合のみ初期表示時に書籍一覧を取得
+if (hasAdminRole()) {
+    loadProducts();
+}

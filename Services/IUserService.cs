@@ -11,8 +11,8 @@ public interface IUserService
     MessageResponse Create(UserRequest request);
 
     // ユーザーを更新
-    MessageResponse Update(int id, UserRequest request);
+    MessageResponse Update(int id, int currentUserId, UserRequest request);
 
     // ユーザーを削除
-    MessageResponse Delete(int id);
+    MessageResponse Delete(int id, int currentUserId);
 }

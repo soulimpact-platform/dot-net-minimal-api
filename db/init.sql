@@ -6,17 +6,17 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 CREATE TABLE IF NOT EXISTS categories (
-    id INTEGER PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS authors (
-    id INTEGER PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE
 );
 
 CREATE TABLE IF NOT EXISTS products (
-    id INTEGER PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     category_id INTEGER NOT NULL,
     author_id INTEGER NOT NULL,
@@ -68,6 +68,12 @@ VALUES
     (4, '語学')
 ON CONFLICT (id) DO NOTHING;
 
+SELECT setval(
+    pg_get_serial_sequence('categories', 'id'),
+    COALESCE((SELECT MAX(id) FROM categories), 1),
+    true
+);
+
 INSERT INTO authors (id, name)
 VALUES
     (1, '山田祥寛'),
@@ -89,6 +95,12 @@ VALUES
     (17, 'ミック'),
     (18, '中原道喜')
 ON CONFLICT (id) DO NOTHING;
+
+SELECT setval(
+    pg_get_serial_sequence('authors', 'id'),
+    COALESCE((SELECT MAX(id) FROM authors), 1),
+    true
+);
 
 INSERT INTO products (id, name, category_id, author_id, price, description)
 VALUES
@@ -115,3 +127,9 @@ VALUES
     (21, 'SQL 第2版 ゼロからはじめるデータベース操作', 1, 17, 2000, 'SQLの基礎を学べる入門書'),
     (22, '基礎英文法問題精講', 4, 18, 1200, '英文法を学習するための参考書')
 ON CONFLICT (id) DO NOTHING;
+
+SELECT setval(
+    pg_get_serial_sequence('products', 'id'),
+    COALESCE((SELECT MAX(id) FROM products), 1),
+    true
+);

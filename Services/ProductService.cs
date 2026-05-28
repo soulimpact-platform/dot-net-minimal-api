@@ -167,6 +167,12 @@ public class ProductService : IProductService
             return new MessageResponse(false, "書籍が見つかりません。");
         }
 
+        if (_productRepository.HasLoanHistory(id))
+        {
+            return new MessageResponse(false, "貸出履歴がある書籍は削除できません。");
+        }
+
+        // 書籍を削除
         _productRepository.Delete(id);
 
         return new MessageResponse(true, "書籍を削除しました。");

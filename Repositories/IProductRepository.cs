@@ -38,6 +38,9 @@ public interface IProductRepository
     // 書籍を更新
     void Update(int id, string name, string category, string author, int price, string description);
 
+    // 指定書籍に貸出履歴が存在するか確認
+    bool HasLoanHistory(int productId);
+
     // 書籍を削除
     void Delete(int id);
 }

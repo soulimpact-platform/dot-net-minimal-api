@@ -207,35 +207,27 @@ public class ProductRepository : IProductRepository
 
         using var transaction = connection.BeginTransaction();
 
-        try
-        {
-            // カテゴリ・著者を取得し、存在しない場合は追加
-            var categoryId = GetOrCreateCategoryId(connection, transaction, category);
-            var authorId = GetOrCreateAuthorId(connection, transaction, author);
+        // カテゴリ・著者を取得し、存在しない場合は追加
+        var categoryId = GetOrCreateCategoryId(connection, transaction, category);
+        var authorId = GetOrCreateAuthorId(connection, transaction, author);
 
-            // 書籍を追加
-            var command = connection.CreateCommand();
-            command.Transaction = transaction;
-            command.CommandText = @"
-                INSERT INTO products (name, category_id, author_id, price, description)
-                VALUES (@name, @categoryId, @authorId, @price, @description)
-            ";
+        // 書籍を追加
+        var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = @"
+            INSERT INTO products (name, category_id, author_id, price, description)
+            VALUES (@name, @categoryId, @authorId, @price, @description)
+        ";
 
-            command.Parameters.AddWithValue("name", name);
-            command.Parameters.AddWithValue("categoryId", categoryId);
-            command.Parameters.AddWithValue("authorId", authorId);
-            command.Parameters.AddWithValue("price", price);
-            command.Parameters.AddWithValue("description", description);
+        command.Parameters.AddWithValue("name", name);
+        command.Parameters.AddWithValue("categoryId", categoryId);
+        command.Parameters.AddWithValue("authorId", authorId);
+        command.Parameters.AddWithValue("price", price);
+        command.Parameters.AddWithValue("description", description);
 
-            command.ExecuteNonQuery();
+        command.ExecuteNonQuery();
 
-            transaction.Commit();
-        }
-        catch
-        {
-            transaction.Rollback();
-            throw;
-        }
+        transaction.Commit();
     }
 
     public void Update(int id, string name, string category, string author, int price, string description)
@@ -245,41 +237,53 @@ public class ProductRepository : IProductRepository
 
         using var transaction = connection.BeginTransaction();
 
-        try
-        {
-            // カテゴリ・著者を取得し、存在しない場合は追加
-            var categoryId = GetOrCreateCategoryId(connection, transaction, category);
-            var authorId = GetOrCreateAuthorId(connection, transaction, author);
+        // カテゴリ・著者を取得し、存在しない場合は追加
+        var categoryId = GetOrCreateCategoryId(connection, transaction, category);
+        var authorId = GetOrCreateAuthorId(connection, transaction, author);
 
-            // 書籍を更新
-            var command = connection.CreateCommand();
-            command.Transaction = transaction;
-            command.CommandText = @"
-                UPDATE products
-                SET name = @name,
-                    category_id = @categoryId,
-                    author_id = @authorId,
-                    price = @price,
-                    description = @description
-                WHERE id = @id
-            ";
+        // 書籍を更新
+        var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = @"
+            UPDATE products
+            SET name = @name,
+                category_id = @categoryId,
+                author_id = @authorId,
+                price = @price,
+                description = @description
+            WHERE id = @id
+        ";
 
-            command.Parameters.AddWithValue("id", id);
-            command.Parameters.AddWithValue("name", name);
-            command.Parameters.AddWithValue("categoryId", categoryId);
-            command.Parameters.AddWithValue("authorId", authorId);
-            command.Parameters.AddWithValue("price", price);
-            command.Parameters.AddWithValue("description", description);
+        command.Parameters.AddWithValue("id", id);
+        command.Parameters.AddWithValue("name", name);
+        command.Parameters.AddWithValue("categoryId", categoryId);
+        command.Parameters.AddWithValue("authorId", authorId);
+        command.Parameters.AddWithValue("price", price);
+        command.Parameters.AddWithValue("description", description);
 
-            command.ExecuteNonQuery();
+        command.ExecuteNonQuery();
 
-            transaction.Commit();
-        }
-        catch
-        {
-            transaction.Rollback();
-            throw;
-        }
+        transaction.Commit();
+    }
+
+    public bool HasLoanHistory(int productId)
+    {
+        using var connection = new NpgsqlConnection(_connectionString);
+        connection.Open();
+
+        // 指定書籍の貸出履歴が存在するか確認
+        var command = connection.CreateCommand();
+        command.CommandText = @"
+            SELECT COUNT(*)
+            FROM book_loans
+            WHERE product_id = @productId
+        ";
+
+        command.Parameters.AddWithValue("productId", productId);
+
+        var count = (long)command.ExecuteScalar()!;
+
+        return count > 0;
     }
 
     public void Delete(int id)
@@ -387,34 +391,18 @@ public class ProductRepository : IProductRepository
         string category
     )
     {
-        var selectCommand = connection.CreateCommand();
-        selectCommand.Transaction = transaction;
-        selectCommand.CommandText = @"
-            SELECT id
-            FROM categories
-            WHERE name = @name
-        ";
-
-        selectCommand.Parameters.AddWithValue("name", category);
-
-        var existingId = selectCommand.ExecuteScalar();
-
-        if (existingId is not null)
-        {
-            return Convert.ToInt32(existingId);
-        }
-
-        var insertCommand = connection.CreateCommand();
-        insertCommand.Transaction = transaction;
-        insertCommand.CommandText = @"
-            INSERT INTO categories (id, name)
-            VALUES ((SELECT COALESCE(MAX(id), 0) + 1 FROM categories), @name)
+        var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = @"
+            INSERT INTO categories (name)
+            VALUES (@name)
+            ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
             RETURNING id
         ";
 
-        insertCommand.Parameters.AddWithValue("name", category);
+        command.Parameters.AddWithValue("name", category);
 
-        return Convert.ToInt32(insertCommand.ExecuteScalar());
+        return Convert.ToInt32(command.ExecuteScalar());
     }
 
     // 著者名から著者IDを取得し、存在しない場合は追加
@@ -424,34 +412,18 @@ public class ProductRepository : IProductRepository
         string author
     )
     {
-        var selectCommand = connection.CreateCommand();
-        selectCommand.Transaction = transaction;
-        selectCommand.CommandText = @"
-            SELECT id
-            FROM authors
-            WHERE name = @name
-        ";
-
-        selectCommand.Parameters.AddWithValue("name", author);
-
-        var existingId = selectCommand.ExecuteScalar();
-
-        if (existingId is not null)
-        {
-            return Convert.ToInt32(existingId);
-        }
-
-        var insertCommand = connection.CreateCommand();
-        insertCommand.Transaction = transaction;
-        insertCommand.CommandText = @"
-            INSERT INTO authors (id, name)
-            VALUES ((SELECT COALESCE(MAX(id), 0) + 1 FROM authors), @name)
+        var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = @"
+            INSERT INTO authors (name)
+            VALUES (@name)
+            ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
             RETURNING id
         ";
 
-        insertCommand.Parameters.AddWithValue("name", author);
+        command.Parameters.AddWithValue("name", author);
 
-        return Convert.ToInt32(insertCommand.ExecuteScalar());
+        return Convert.ToInt32(command.ExecuteScalar());
     }
 
     // LIKE検索用に特殊文字をエスケープ

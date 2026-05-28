@@ -30,4 +30,10 @@ public interface IUserRepository
 
     // ユーザーを削除
     void Delete(int id);
+
+    // 指定ユーザーに貸出履歴が存在するか確認
+    bool HasLoanHistory(int userId);
+
+    // 指定ユーザーのログイントークンを削除
+    void DeleteLoginTokens(int userId);
 }

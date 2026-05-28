@@ -227,6 +227,43 @@ public class UserRepository : IUserRepository
         command.ExecuteNonQuery();
     }
 
+    public bool HasLoanHistory(int userId)
+    {
+        using var connection = new NpgsqlConnection(_connectionString);
+        connection.Open();
+
+        // 指定ユーザーの貸出履歴が存在するか確認
+        var command = connection.CreateCommand();
+        command.CommandText = @"
+            SELECT COUNT(*)
+            FROM book_loans
+            WHERE user_id = @userId
+        ";
+
+        command.Parameters.AddWithValue("userId", userId);
+
+        var count = (long)command.ExecuteScalar()!;
+
+        return count > 0;
+    }
+
+    public void DeleteLoginTokens(int userId)
+    {
+        using var connection = new NpgsqlConnection(_connectionString);
+        connection.Open();
+
+        // 指定ユーザーのログイントークンを削除
+        var command = connection.CreateCommand();
+        command.CommandText = @"
+            DELETE FROM login_tokens
+            WHERE user_id = @userId
+        ";
+
+        command.Parameters.AddWithValue("userId", userId);
+
+        command.ExecuteNonQuery();
+    }
+
     public void Delete(int id)
     {
         using var connection = new NpgsqlConnection(_connectionString);

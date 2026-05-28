@@ -106,6 +106,7 @@ public static class ProductEndpoints
         .RequireAuthorization();
 
         // 管理者向け書籍一覧取得API
+        // TODO: 書籍件数が増えた場合はページング対応を検討する
         app.MapGet("/api/admin/products", (IProductService productService) =>
         {
             var products = productService.GetAll();
