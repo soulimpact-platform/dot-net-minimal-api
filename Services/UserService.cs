@@ -85,7 +85,13 @@ public class UserService : IUserService
             return new MessageResponse(false, "ユーザー名を入力してください。");
         }
 
-        // 更新時のパスワードは任意。未入力の場合は変更しない
+        // 更新時のパスワードは任意。入力されている場合のみ最低文字数を確認
+        if (!string.IsNullOrWhiteSpace(request.Password) &&
+            !IsValidPasswordLength(request.Password))
+        {
+            return new MessageResponse(false, "パスワードは8文字以上で入力してください。");
+        }
+
         if (!IsValidRole(request.Role))
         {
             return new MessageResponse(false, "ロールが不正です。");
@@ -108,11 +114,6 @@ public class UserService : IUserService
         }
         else
         {
-            if (!IsValidPasswordLength(request.Password))
-            {
-                return new MessageResponse(false, "パスワードは8文字以上で入力してください。");
-            }
-
             var dummyUser = new UserAuthInfo(
                 id,
                 request.Username,
