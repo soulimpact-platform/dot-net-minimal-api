@@ -274,16 +274,16 @@ public class ProductRepository : IProductRepository
         // 指定書籍の貸出履歴が存在するか確認
         var command = connection.CreateCommand();
         command.CommandText = @"
-            SELECT COUNT(*)
-            FROM book_loans
-            WHERE product_id = @productId
+            SELECT EXISTS(
+                SELECT 1
+                FROM book_loans
+                WHERE product_id = @productId
+            )
         ";
 
         command.Parameters.AddWithValue("productId", productId);
 
-        var count = (long)command.ExecuteScalar()!;
-
-        return count > 0;
+        return (bool)command.ExecuteScalar()!;
     }
 
     public void Delete(int id)

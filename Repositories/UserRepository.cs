@@ -17,7 +17,6 @@ public class UserRepository : IUserRepository
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
-        // ユーザー名に一致する認証用ユーザー情報を取得
         var command = connection.CreateCommand();
         command.CommandText = @"
             SELECT
@@ -38,7 +37,6 @@ public class UserRepository : IUserRepository
             return null;
         }
 
-        // DBから取得した行を認証用ユーザー情報に変換
         return new UserAuthInfo(
             reader.GetInt32(reader.GetOrdinal("id")),
             reader.GetString(reader.GetOrdinal("username")),
@@ -54,7 +52,6 @@ public class UserRepository : IUserRepository
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
-        // ユーザー一覧を取得
         var command = connection.CreateCommand();
         command.CommandText = @"
             SELECT
@@ -80,7 +77,6 @@ public class UserRepository : IUserRepository
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
-        // IDに一致するユーザー情報を取得
         var command = connection.CreateCommand();
         command.CommandText = @"
             SELECT
@@ -108,19 +104,18 @@ public class UserRepository : IUserRepository
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
-        // 同じユーザー名が存在するか確認
         var command = connection.CreateCommand();
         command.CommandText = @"
-            SELECT COUNT(*)
-            FROM users
-            WHERE username = @username
+            SELECT EXISTS(
+                SELECT 1
+                FROM users
+                WHERE username = @username
+            )
         ";
 
         command.Parameters.AddWithValue("username", username);
 
-        var count = (long)command.ExecuteScalar()!;
-
-        return count > 0;
+        return (bool)command.ExecuteScalar()!;
     }
 
     public bool ExistsByUsernameExceptId(string username, int id)
@@ -128,21 +123,20 @@ public class UserRepository : IUserRepository
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
-        // 指定ID以外で同じユーザー名が存在するか確認
         var command = connection.CreateCommand();
         command.CommandText = @"
-            SELECT COUNT(*)
-            FROM users
-            WHERE username = @username
-              AND id <> @id
+            SELECT EXISTS(
+                SELECT 1
+                FROM users
+                WHERE username = @username
+                  AND id <> @id
+            )
         ";
 
         command.Parameters.AddWithValue("username", username);
         command.Parameters.AddWithValue("id", id);
 
-        var count = (long)command.ExecuteScalar()!;
-
-        return count > 0;
+        return (bool)command.ExecuteScalar()!;
     }
 
     public void Create(string username, string passwordHash, string role)
@@ -150,7 +144,6 @@ public class UserRepository : IUserRepository
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
-        // ユーザーを追加
         var command = connection.CreateCommand();
         command.CommandText = @"
             INSERT INTO users (username, password_hash, role)
@@ -169,7 +162,6 @@ public class UserRepository : IUserRepository
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
-        // パスワード以外のユーザー情報を更新
         var command = connection.CreateCommand();
         command.CommandText = @"
             UPDATE users
@@ -190,7 +182,6 @@ public class UserRepository : IUserRepository
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
-        // パスワードを含めてユーザー情報を更新
         var command = connection.CreateCommand();
         command.CommandText = @"
             UPDATE users
@@ -213,7 +204,6 @@ public class UserRepository : IUserRepository
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
-        // 指定ユーザーのパスワードハッシュを更新
         var command = connection.CreateCommand();
         command.CommandText = @"
             UPDATE users
@@ -232,56 +222,50 @@ public class UserRepository : IUserRepository
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
-        // 指定ユーザーの貸出履歴が存在するか確認
         var command = connection.CreateCommand();
         command.CommandText = @"
-            SELECT COUNT(*)
-            FROM book_loans
-            WHERE user_id = @userId
+            SELECT EXISTS(
+                SELECT 1
+                FROM book_loans
+                WHERE user_id = @userId
+            )
         ";
 
         command.Parameters.AddWithValue("userId", userId);
 
-        var count = (long)command.ExecuteScalar()!;
-
-        return count > 0;
+        return (bool)command.ExecuteScalar()!;
     }
 
-    public void DeleteLoginTokens(int userId)
+    public void DeleteWithLoginTokens(int userId)
     {
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
-        // 指定ユーザーのログイントークンを削除
-        var command = connection.CreateCommand();
-        command.CommandText = @"
+        using var transaction = connection.BeginTransaction();
+
+        var deleteTokensCommand = connection.CreateCommand();
+        deleteTokensCommand.Transaction = transaction;
+        deleteTokensCommand.CommandText = @"
             DELETE FROM login_tokens
             WHERE user_id = @userId
         ";
 
-        command.Parameters.AddWithValue("userId", userId);
+        deleteTokensCommand.Parameters.AddWithValue("userId", userId);
+        deleteTokensCommand.ExecuteNonQuery();
 
-        command.ExecuteNonQuery();
-    }
-
-    public void Delete(int id)
-    {
-        using var connection = new NpgsqlConnection(_connectionString);
-        connection.Open();
-
-        // ユーザーを削除
-        var command = connection.CreateCommand();
-        command.CommandText = @"
+        var deleteUserCommand = connection.CreateCommand();
+        deleteUserCommand.Transaction = transaction;
+        deleteUserCommand.CommandText = @"
             DELETE FROM users
-            WHERE id = @id
+            WHERE id = @userId
         ";
 
-        command.Parameters.AddWithValue("id", id);
+        deleteUserCommand.Parameters.AddWithValue("userId", userId);
+        deleteUserCommand.ExecuteNonQuery();
 
-        command.ExecuteNonQuery();
+        transaction.Commit();
     }
 
-    // DBから取得した行をユーザー表示用レスポンスに変換
     private static UserResponse CreateUserResponse(NpgsqlDataReader reader)
     {
         return new UserResponse(

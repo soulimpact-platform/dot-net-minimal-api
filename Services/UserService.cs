@@ -18,13 +18,11 @@ public class UserService : IUserService
 
     public List<UserResponse> GetAll()
     {
-        // ユーザー一覧を取得
         return _userRepository.FindAll();
     }
 
     public UserResponse? GetById(int id)
     {
-        // IDに一致するユーザー情報を取得
         return _userRepository.FindById(id);
     }
 
@@ -62,10 +60,8 @@ public class UserService : IUserService
             request.Role
         );
 
-        // パスワードをハッシュ化
         var passwordHash = _passwordHasher.HashPassword(dummyUser, request.Password);
 
-        // ユーザーを追加
         _userRepository.Create(request.Username, passwordHash, request.Role);
 
         return new MessageResponse(true, "ユーザーを追加しました。");
@@ -85,7 +81,6 @@ public class UserService : IUserService
             return new MessageResponse(false, "ユーザー名を入力してください。");
         }
 
-        // 更新時のパスワードは任意。入力されている場合のみ最低文字数を確認
         if (!string.IsNullOrWhiteSpace(request.Password) &&
             !IsValidPasswordLength(request.Password))
         {
@@ -109,7 +104,6 @@ public class UserService : IUserService
 
         if (string.IsNullOrWhiteSpace(request.Password))
         {
-            // パスワード未入力の場合は、ユーザー名とロールのみ更新
             _userRepository.Update(id, request.Username, request.Role);
         }
         else
@@ -121,7 +115,6 @@ public class UserService : IUserService
                 request.Role
             );
 
-            // 入力されたパスワードをハッシュ化して更新
             var passwordHash = _passwordHasher.HashPassword(dummyUser, request.Password);
 
             _userRepository.UpdateWithPassword(
@@ -154,22 +147,16 @@ public class UserService : IUserService
             return new MessageResponse(false, "貸出履歴があるユーザーは削除できません。");
         }
 
-        // login_tokens の外部キー制約に引っかからないよう、先にログイントークンを削除
-        _userRepository.DeleteLoginTokens(id);
-
-        // ユーザーを削除
-        _userRepository.Delete(id);
+        _userRepository.DeleteWithLoginTokens(id);
 
         return new MessageResponse(true, "ユーザーを削除しました。");
     }
 
-    // パスワードの最低文字数を満たしているか確認
     private static bool IsValidPasswordLength(string password)
     {
         return password.Length >= MinimumPasswordLength;
     }
 
-    // 許可されたロールか確認
     private static bool IsValidRole(string role)
     {
         return role == "general" || role == "admin";

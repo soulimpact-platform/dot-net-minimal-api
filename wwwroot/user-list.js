@@ -26,10 +26,19 @@ function decodeJwtPayload(token) {
     return JSON.parse(json);
 }
 
+// APIエラー時のメッセージを取得
+async function getErrorMessage(response, defaultMessage) {
+    try {
+        const result = await response.json();
+        return result.message ?? defaultMessage;
+    } catch {
+        return defaultMessage;
+    }
+}
+
 // 管理者権限があるか確認
 function hasAdminRole() {
     if (!token) {
-        // JWTが保存されていない場合、ログイン画面へ戻る
         redirectToLogin();
         return false;
     }
@@ -38,14 +47,12 @@ function hasAdminRole() {
         const payload = decodeJwtPayload(token);
 
         if (payload.role !== "admin") {
-            // 管理者以外の場合はアカウント表示画面へ戻る
             window.location.href = "account.html";
             return false;
         }
 
         return true;
     } catch {
-        // JWTの形式が不正な場合はログイン画面へ戻る
         redirectToLogin();
         return false;
     }
@@ -57,7 +64,6 @@ async function loadUsers() {
     resultArea.innerHTML = "";
 
     try {
-        // JWTをAuthorizationヘッダに付与してユーザ一覧APIを呼び出し
         const response = await fetch("/api/admin/users", {
             headers: {
                 "Authorization": `Bearer ${token}`
@@ -65,19 +71,16 @@ async function loadUsers() {
         });
 
         if (response.status === 401) {
-            // JWTが無効・期限切れの場合はログイン画面へ戻る
             redirectToLogin();
             return;
         }
 
         if (response.status === 403) {
-            // 権限不足の場合はメッセージを表示
             message.textContent = "ユーザ管理画面を表示する権限がありません。";
             return;
         }
 
         if (!response.ok) {
-            // API呼び出しに失敗した場合
             message.textContent = "ユーザ一覧の取得に失敗しました。";
             return;
         }
@@ -91,7 +94,6 @@ async function loadUsers() {
 
         renderUserTable(users);
     } catch {
-        // 通信断などでfetch自体に失敗した場合
         message.textContent = "通信エラーが発生しました。";
     }
 }
@@ -160,7 +162,6 @@ async function deleteUser(id, username) {
     message.textContent = "";
 
     try {
-        // JWTをAuthorizationヘッダに付与してユーザ削除APIを呼び出し
         const response = await fetch(`/api/admin/users/${id}`, {
             method: "DELETE",
             headers: {
@@ -169,44 +170,38 @@ async function deleteUser(id, username) {
         });
 
         if (response.status === 401) {
-            // JWTが無効・期限切れの場合はログイン画面へ戻る
             redirectToLogin();
             return;
         }
 
         if (response.status === 403) {
-            // 権限不足の場合はメッセージを表示
             message.textContent = "ユーザを削除する権限がありません。";
+            return;
+        }
+
+        if (!response.ok) {
+            message.textContent = await getErrorMessage(response, "ユーザ削除に失敗しました。");
             return;
         }
 
         const result = await response.json();
 
-        if (!response.ok) {
-            message.textContent = result.message ?? "ユーザ削除に失敗しました。";
-            return;
-        }
-
         message.textContent = result.message;
 
         await loadUsers();
     } catch {
-        // 通信断などでfetch自体に失敗した場合
         message.textContent = "通信エラーが発生しました。";
     }
 }
 
 document.getElementById("addButton").addEventListener("click", function () {
-    // ユーザ追加画面へ遷移
     window.location.href = "user-edit.html";
 });
 
 document.getElementById("backButton").addEventListener("click", function () {
-    // アカウント表示画面へ戻る
     window.location.href = "account.html";
 });
 
-// 管理者の場合のみ初期表示時にユーザ一覧を取得
 if (hasAdminRole()) {
     loadUsers();
 }

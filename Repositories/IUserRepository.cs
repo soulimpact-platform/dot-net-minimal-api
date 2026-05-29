@@ -28,12 +28,9 @@ public interface IUserRepository
     // 指定ユーザーのパスワードハッシュを更新
     void UpdatePasswordHash(int userId, string passwordHash);
 
-    // ユーザーを削除
-    void Delete(int id);
-
     // 指定ユーザーに貸出履歴が存在するか確認
     bool HasLoanHistory(int userId);
 
-    // 指定ユーザーのログイントークンを削除
-    void DeleteLoginTokens(int userId);
+    // ログイントークン削除とユーザー削除を同一トランザクションで実行
+    void DeleteWithLoginTokens(int userId);
 }

@@ -26,6 +26,16 @@ function decodeJwtPayload(token) {
     return JSON.parse(json);
 }
 
+// APIエラー時のメッセージを取得
+async function getErrorMessage(response, defaultMessage) {
+    try {
+        const result = await response.json();
+        return result.message ?? defaultMessage;
+    } catch {
+        return defaultMessage;
+    }
+}
+
 // 管理者権限があるか確認
 function hasAdminRole() {
     if (!token) {
@@ -190,12 +200,13 @@ async function deleteProduct(id, name) {
             return;
         }
 
-        const result = await response.json();
-
         if (!response.ok) {
-            message.textContent = result.message ?? "書籍削除に失敗しました。";
+            // APIエラー時は、取得できる範囲でメッセージを表示
+            message.textContent = await getErrorMessage(response, "書籍削除に失敗しました。");
             return;
         }
+
+        const result = await response.json();
 
         message.textContent = result.message;
 
