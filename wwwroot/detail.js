@@ -19,10 +19,10 @@ function redirectToLogin() {
 }
 
 // 詳細APIを呼び出して書籍情報を表示
-async function loadProductDetail(id) {
+async function loadBookDetail(id) {
     try {
         // JWTをAuthorizationヘッダに付与して書籍詳細APIを呼び出し
-        const response = await fetch(`/api/products/${id}`, {
+        const response = await fetch(`/api/books/${id}`, {
             headers: {
                 "Authorization": `Bearer ${token}`
             }
@@ -40,14 +40,14 @@ async function loadProductDetail(id) {
             return;
         }
 
-        const product = await response.json();
+        const book = await response.json();
 
         // 取得した書籍情報を画面に表示
-        document.getElementById("name").textContent = product.name;
-        document.getElementById("category").textContent = product.category;
-        document.getElementById("author").textContent = product.author;
-        document.getElementById("price").textContent = `${product.price}円`;
-        document.getElementById("description").textContent = product.description;
+        document.getElementById("name").textContent = book.name;
+        document.getElementById("category").textContent = book.category;
+        document.getElementById("author").textContent = book.author;
+        document.getElementById("price").textContent = `${book.price}円`;
+        document.getElementById("description").textContent = book.description;
     } catch {
         // 通信断などでfetch自体に失敗した場合
         message.textContent = "通信エラーが発生しました。";
@@ -59,7 +59,7 @@ if (!id) {
     message.textContent = "書籍IDが取得できません。";
 } else {
     // 書籍IDをもとに詳細情報を取得
-    loadProductDetail(id);
+    loadBookDetail(id);
 }
 
 document.getElementById("backButton").addEventListener("click", function () {
