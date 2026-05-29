@@ -4,13 +4,11 @@ const token = sessionStorage.getItem("token");
 const message = document.getElementById("message");
 const resultArea = document.getElementById("resultArea");
 
-// JWTを削除してログイン画面へ戻る
 function redirectToLogin() {
     sessionStorage.removeItem("token");
     window.location.href = "login.html";
 }
 
-// JWTのpayload部分をデコード
 function decodeJwtPayload(token) {
     const payload = token.split(".")[1];
     const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
@@ -26,7 +24,6 @@ function decodeJwtPayload(token) {
     return JSON.parse(json);
 }
 
-// APIエラー時のメッセージを取得
 async function getErrorMessage(response, defaultMessage) {
     try {
         const result = await response.json();
@@ -36,10 +33,8 @@ async function getErrorMessage(response, defaultMessage) {
     }
 }
 
-// 管理者権限があるか確認
 function hasAdminRole() {
     if (!token) {
-        // JWTが保存されていない場合、ログイン画面へ戻る
         redirectToLogin();
         return false;
     }
@@ -48,66 +43,57 @@ function hasAdminRole() {
         const payload = decodeJwtPayload(token);
 
         if (payload.role !== "admin") {
-            // 管理者以外の場合はアカウント表示画面へ戻る
             window.location.href = "account.html";
             return false;
         }
 
         return true;
     } catch {
-        // JWTの形式が不正な場合はログイン画面へ戻る
         redirectToLogin();
         return false;
     }
 }
 
-// 書籍一覧を取得して表示
-async function loadProducts() {
+async function loadBooks() {
     message.textContent = "";
     resultArea.innerHTML = "";
 
     try {
-        // JWTをAuthorizationヘッダに付与して書籍一覧APIを呼び出し
-        const response = await fetch("/api/admin/products", {
+        const response = await fetch("/api/admin/books", {
             headers: {
                 "Authorization": `Bearer ${token}`
             }
         });
 
         if (response.status === 401) {
-            // JWTが無効・期限切れの場合はログイン画面へ戻る
             redirectToLogin();
             return;
         }
 
         if (response.status === 403) {
-            // 権限不足の場合はメッセージを表示
             message.textContent = "書籍管理画面を表示する権限がありません。";
             return;
         }
 
         if (!response.ok) {
-            // API呼び出しに失敗した場合
             message.textContent = "書籍一覧の取得に失敗しました。";
             return;
         }
 
-        const products = await response.json();
+        const books = await response.json();
 
-        if (products.length === 0) {
+        if (books.length === 0) {
             message.textContent = "書籍が登録されていません。";
             return;
         }
 
-        renderProductTable(products);
+        renderBookTable(books);
     } catch {
-        // 通信断などでfetch自体に失敗した場合
         message.textContent = "通信エラーが発生しました。";
     }
 }
 
-// 書籍一覧テーブルを表示
-function renderProductTable(products) {
+function renderBookTable(books) {
     const table = document.createElement("table");
     table.className = "result-table";
 
@@ -122,27 +108,27 @@ function renderProductTable(products) {
         </tr>
     `;
 
-    products.forEach(function (product) {
+    books.forEach(function (book) {
         const row = document.createElement("tr");
 
         const idCell = document.createElement("td");
-        idCell.textContent = product.id;
+        idCell.textContent = book.id;
         row.appendChild(idCell);
 
         const nameCell = document.createElement("td");
-        nameCell.textContent = product.name;
+        nameCell.textContent = book.name;
         row.appendChild(nameCell);
 
         const categoryCell = document.createElement("td");
-        categoryCell.textContent = product.category;
+        categoryCell.textContent = book.category;
         row.appendChild(categoryCell);
 
         const authorCell = document.createElement("td");
-        authorCell.textContent = product.author;
+        authorCell.textContent = book.author;
         row.appendChild(authorCell);
 
         const priceCell = document.createElement("td");
-        priceCell.textContent = `${product.price}円`;
+        priceCell.textContent = `${book.price}円`;
         row.appendChild(priceCell);
 
         const actionCell = document.createElement("td");
@@ -151,14 +137,14 @@ function renderProductTable(products) {
         editButton.textContent = "編集";
         editButton.className = "table-button";
         editButton.addEventListener("click", function () {
-            window.location.href = `product-edit.html?id=${encodeURIComponent(product.id)}`;
+            window.location.href = `book-edit.html?id=${encodeURIComponent(book.id)}`;
         });
 
         const deleteButton = document.createElement("button");
         deleteButton.textContent = "削除";
         deleteButton.className = "table-button";
         deleteButton.addEventListener("click", async function () {
-            await deleteProduct(product.id, product.name);
+            await deleteBook(book.id, book.name);
         });
 
         actionCell.appendChild(editButton);
@@ -171,8 +157,7 @@ function renderProductTable(products) {
     resultArea.appendChild(table);
 }
 
-// 書籍を削除
-async function deleteProduct(id, name) {
+async function deleteBook(id, name) {
     if (!confirm(`${name} を削除しますか？`)) {
         return;
     }
@@ -180,8 +165,7 @@ async function deleteProduct(id, name) {
     message.textContent = "";
 
     try {
-        // JWTをAuthorizationヘッダに付与して書籍削除APIを呼び出し
-        const response = await fetch(`/api/admin/products/${id}`, {
+        const response = await fetch(`/api/admin/books/${id}`, {
             method: "DELETE",
             headers: {
                 "Authorization": `Bearer ${token}`
@@ -189,19 +173,16 @@ async function deleteProduct(id, name) {
         });
 
         if (response.status === 401) {
-            // JWTが無効・期限切れの場合はログイン画面へ戻る
             redirectToLogin();
             return;
         }
 
         if (response.status === 403) {
-            // 権限不足の場合はメッセージを表示
             message.textContent = "書籍を削除する権限がありません。";
             return;
         }
 
         if (!response.ok) {
-            // APIエラー時は、取得できる範囲でメッセージを表示
             message.textContent = await getErrorMessage(response, "書籍削除に失敗しました。");
             return;
         }
@@ -210,24 +191,20 @@ async function deleteProduct(id, name) {
 
         message.textContent = result.message;
 
-        await loadProducts();
+        await loadBooks();
     } catch {
-        // 通信断などでfetch自体に失敗した場合
         message.textContent = "通信エラーが発生しました。";
     }
 }
 
 document.getElementById("addButton").addEventListener("click", function () {
-    // 書籍追加画面へ遷移
-    window.location.href = "product-edit.html";
+    window.location.href = "book-edit.html";
 });
 
 document.getElementById("backButton").addEventListener("click", function () {
-    // アカウント表示画面へ戻る
     window.location.href = "account.html";
 });
 
-// 管理者の場合のみ初期表示時に書籍一覧を取得
 if (hasAdminRole()) {
-    loadProducts();
+    loadBooks();
 }

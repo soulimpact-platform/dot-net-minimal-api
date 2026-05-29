@@ -8,11 +8,11 @@ public interface IUserService
     UserResponse? GetById(int id);
 
     // ユーザーを追加
-    MessageResponse Create(UserRequest request);
+    MessageResponse Create(UserRequest request, string currentUsername);
 
     // ユーザーを更新
-    MessageResponse Update(int id, int currentUserId, UserRequest request);
+    MessageResponse Update(int id, int currentUserId, string currentUsername, UserRequest request);
 
     // ユーザーを削除
-    MessageResponse Delete(int id, int currentUserId);
+    MessageResponse Delete(int id, int currentUserId, string currentUsername);
 }

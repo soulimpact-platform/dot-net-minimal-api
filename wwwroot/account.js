@@ -49,9 +49,9 @@ document.getElementById("userManageButton").addEventListener("click", function (
     window.location.href = "user-list.html";
 });
 
-document.getElementById("productManageButton").addEventListener("click", function () {
+document.getElementById("bookManageButton").addEventListener("click", function () {
     // 書籍管理画面へ遷移
-    window.location.href = "product-list.html";
+    window.location.href = "book-list.html";
 });
 
 document.getElementById("logoutButton").addEventListener("click", async function () {

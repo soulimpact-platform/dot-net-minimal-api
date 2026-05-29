@@ -13,24 +13,18 @@ public interface IUserRepository
     // ユーザー名が存在するか確認
     bool ExistsByUsername(string username);
 
-    // 指定ID以外でユーザー名が存在するか確認
-    bool ExistsByUsernameExceptId(string username, int id);
-
     // ユーザーを追加
-    void Create(string username, string passwordHash, string role);
+    void Create(string username, string passwordHash, string role, string createdBy);
 
     // ユーザー情報を更新
-    void Update(int id, string username, string role);
+    void Update(int id, string role, string updatedBy);
 
     // パスワードを含めてユーザー情報を更新
-    void UpdateWithPassword(int id, string username, string passwordHash, string role);
+    void UpdateWithPassword(int id, string passwordHash, string role, string updatedBy);
 
     // 指定ユーザーのパスワードハッシュを更新
     void UpdatePasswordHash(int userId, string passwordHash);
 
-    // 指定ユーザーに貸出履歴が存在するか確認
-    bool HasLoanHistory(int userId);
-
-    // ログイントークン削除とユーザー削除を同一トランザクションで実行
-    void DeleteWithLoginTokens(int userId);
+    // ログイントークン削除とユーザー論理削除を同一トランザクションで実行
+    void DeleteWithLoginTokens(int userId, string updatedBy);
 }

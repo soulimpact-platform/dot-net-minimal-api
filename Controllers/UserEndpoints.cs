@@ -28,9 +28,16 @@ public static class UserEndpoints
         .RequireAuthorization(policy => policy.RequireRole("admin"));
 
         // ユーザー追加API
-        app.MapPost("/api/admin/users", (UserRequest request, IUserService userService) =>
+        app.MapPost("/api/admin/users", (UserRequest request, HttpContext context, IUserService userService) =>
         {
-            var result = userService.Create(request);
+            var currentUsername = GetUsername(context);
+
+            if (string.IsNullOrEmpty(currentUsername))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = userService.Create(request, currentUsername);
 
             if (!result.Success)
             {
@@ -45,13 +52,14 @@ public static class UserEndpoints
         app.MapPut("/api/admin/users/{id:int}", (int id, UserRequest request, HttpContext context, IUserService userService) =>
         {
             var currentUserId = GetUserId(context);
+            var currentUsername = GetUsername(context);
 
-            if (currentUserId is null)
+            if (currentUserId is null || string.IsNullOrEmpty(currentUsername))
             {
                 return Results.Unauthorized();
             }
 
-            var result = userService.Update(id, currentUserId.Value, request);
+            var result = userService.Update(id, currentUserId.Value, currentUsername, request);
 
             if (!result.Success)
             {
@@ -66,13 +74,14 @@ public static class UserEndpoints
         app.MapDelete("/api/admin/users/{id:int}", (int id, HttpContext context, IUserService userService) =>
         {
             var currentUserId = GetUserId(context);
+            var currentUsername = GetUsername(context);
 
-            if (currentUserId is null)
+            if (currentUserId is null || string.IsNullOrEmpty(currentUsername))
             {
                 return Results.Unauthorized();
             }
 
-            var result = userService.Delete(id, currentUserId.Value);
+            var result = userService.Delete(id, currentUserId.Value, currentUsername);
 
             if (!result.Success)
             {
@@ -84,7 +93,6 @@ public static class UserEndpoints
         .RequireAuthorization(policy => policy.RequireRole("admin"));
     }
 
-    // JWTからログインユーザーIDを取得
     private static int? GetUserId(HttpContext context)
     {
         var userIdText = context.User.FindFirst("user_id")?.Value;
@@ -95,5 +103,10 @@ public static class UserEndpoints
         }
 
         return userId;
+    }
+
+    private static string? GetUsername(HttpContext context)
+    {
+        return context.User.FindFirst("username")?.Value;
     }
 }

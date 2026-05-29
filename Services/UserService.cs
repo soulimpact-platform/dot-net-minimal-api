@@ -26,7 +26,7 @@ public class UserService : IUserService
         return _userRepository.FindById(id);
     }
 
-    public MessageResponse Create(UserRequest request)
+    public MessageResponse Create(UserRequest request, string currentUsername)
     {
         if (string.IsNullOrWhiteSpace(request.Username))
         {
@@ -62,23 +62,18 @@ public class UserService : IUserService
 
         var passwordHash = _passwordHasher.HashPassword(dummyUser, request.Password);
 
-        _userRepository.Create(request.Username, passwordHash, request.Role);
+        _userRepository.Create(request.Username, passwordHash, request.Role, currentUsername);
 
         return new MessageResponse(true, "ユーザーを追加しました。");
     }
 
-    public MessageResponse Update(int id, int currentUserId, UserRequest request)
+    public MessageResponse Update(int id, int currentUserId, string currentUsername, UserRequest request)
     {
         var user = _userRepository.FindById(id);
 
         if (user is null)
         {
             return new MessageResponse(false, "ユーザーが見つかりません。");
-        }
-
-        if (string.IsNullOrWhiteSpace(request.Username))
-        {
-            return new MessageResponse(false, "ユーザー名を入力してください。");
         }
 
         if (!string.IsNullOrWhiteSpace(request.Password) &&
@@ -97,20 +92,15 @@ public class UserService : IUserService
             return new MessageResponse(false, "ログイン中のユーザーは一般ユーザーに変更できません。");
         }
 
-        if (_userRepository.ExistsByUsernameExceptId(request.Username, id))
-        {
-            return new MessageResponse(false, "同じユーザー名が既に存在します。");
-        }
-
         if (string.IsNullOrWhiteSpace(request.Password))
         {
-            _userRepository.Update(id, request.Username, request.Role);
+            _userRepository.Update(id, request.Role, currentUsername);
         }
         else
         {
             var dummyUser = new UserAuthInfo(
                 id,
-                request.Username,
+                user.Username,
                 "",
                 request.Role
             );
@@ -119,16 +109,16 @@ public class UserService : IUserService
 
             _userRepository.UpdateWithPassword(
                 id,
-                request.Username,
                 passwordHash,
-                request.Role
+                request.Role,
+                currentUsername
             );
         }
 
         return new MessageResponse(true, "ユーザーを更新しました。");
     }
 
-    public MessageResponse Delete(int id, int currentUserId)
+    public MessageResponse Delete(int id, int currentUserId, string currentUsername)
     {
         var user = _userRepository.FindById(id);
 
@@ -142,12 +132,7 @@ public class UserService : IUserService
             return new MessageResponse(false, "ログイン中のユーザーは削除できません。");
         }
 
-        if (_userRepository.HasLoanHistory(id))
-        {
-            return new MessageResponse(false, "貸出履歴があるユーザーは削除できません。");
-        }
-
-        _userRepository.DeleteWithLoginTokens(id);
+        _userRepository.DeleteWithLoginTokens(id, currentUsername);
 
         return new MessageResponse(true, "ユーザーを削除しました。");
     }

@@ -23,11 +23,11 @@ var jwtAudience = builder.Configuration["Jwt:Audience"]
 // 使用するRepositoryを登録
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ILoginTokenRepository, LoginTokenRepository>();
-builder.Services.AddScoped<IProductRepository, ProductRepository>();
+builder.Services.AddScoped<IBookRepository, BookRepository>();
 
 // 使用するServiceを登録
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IBookService, BookService>();
 builder.Services.AddScoped<IUserService, UserService>();
 
 // パスワードハッシュ検証用の処理を登録
@@ -106,7 +106,7 @@ app.UseAuthorization();
 
 // APIエンドポイントを登録
 app.MapAuthEndpoints();
-app.MapProductEndpoints();
+app.MapBookEndpoints();
 app.MapUserEndpoints();
 
 app.Run();

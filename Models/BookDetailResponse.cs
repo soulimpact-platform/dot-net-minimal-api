@@ -1,5 +1,5 @@
-// 書籍詳細で返すレスポンス
-public record ProductDetailResponse(
+// 書籍詳細表示用のレスポンス
+public record BookDetailResponse(
     int Id,
     string Name,
     string Category,

@@ -1,13 +1,12 @@
 using System.Text;
 
 // 書籍関連APIのエンドポイント定義
-public static class ProductEndpoints
+public static class BookEndpoints
 {
-    public static void MapProductEndpoints(this WebApplication app)
+    public static void MapBookEndpoints(this WebApplication app)
     {
         // 書籍検索API
-        // 書籍名・カテゴリ・著者名・価格を条件に検索し、検索結果一覧を返す
-        app.MapGet("/api/products/search", (
+        app.MapGet("/api/books/search", (
             string? name,
             string? category,
             string? author,
@@ -15,11 +14,11 @@ public static class ProductEndpoints
             int? maxPrice,
             string? sortBy,
             string? sortOrder,
-            IProductService productService,
+            IBookService bookService,
             int page = 1,
             int pageSize = 10) =>
         {
-            var result = productService.Search(
+            var result = bookService.Search(
                 name,
                 category,
                 author,
@@ -36,8 +35,7 @@ public static class ProductEndpoints
         .RequireAuthorization();
 
         // 書籍CSVエクスポートAPI
-        // 検索条件に一致する書籍をCSV形式で返す
-        app.MapGet("/api/products/export-csv", (
+        app.MapGet("/api/books/export-csv", (
             string? name,
             string? category,
             string? author,
@@ -45,12 +43,11 @@ public static class ProductEndpoints
             int? maxPrice,
             string? sortBy,
             string? sortOrder,
-            IProductService productService) =>
+            IBookService bookService) =>
         {
             const int csvExportLimit = 10000;
 
-            // 上限超過判定用に1件多く取得
-            var products = productService.SearchAll(
+            var books = bookService.SearchAll(
                 name,
                 category,
                 author,
@@ -61,7 +58,7 @@ public static class ProductEndpoints
                 csvExportLimit + 1
             );
 
-            if (products.Count > csvExportLimit)
+            if (books.Count > csvExportLimit)
             {
                 return Results.BadRequest(new
                 {
@@ -70,13 +67,12 @@ public static class ProductEndpoints
             }
 
             var csv = new StringBuilder();
-
             csv.AppendLine("ID,書籍名,カテゴリ,著者,価格");
 
-            foreach (var product in products)
+            foreach (var book in books)
             {
                 csv.AppendLine(
-                    $"{product.Id},{EscapeCsv(product.Name)},{EscapeCsv(product.Category)},{EscapeCsv(product.Author)},{product.Price}"
+                    $"{book.Id},{EscapeCsv(book.Name)},{EscapeCsv(book.Category)},{EscapeCsv(book.Author)},{book.Price}"
                 );
             }
 
@@ -85,54 +81,60 @@ public static class ProductEndpoints
             return Results.File(
                 shiftJis.GetBytes(csv.ToString()),
                 "text/csv; charset=Shift_JIS",
-                "products.csv"
+                "books.csv"
             );
         })
         .RequireAuthorization();
 
         // 書籍詳細API
-        // 指定されたIDの書籍詳細を返す
-        app.MapGet("/api/products/{id:int}", (int id, IProductService productService) =>
+        app.MapGet("/api/books/{id:int}", (int id, IBookService bookService) =>
         {
-            var product = productService.FindById(id);
+            var book = bookService.FindById(id);
 
-            if (product is null)
+            if (book is null)
             {
                 return Results.NotFound();
             }
 
-            return Results.Ok(product);
+            return Results.Ok(book);
         })
         .RequireAuthorization();
 
         // 管理者向け書籍一覧取得API
         // TODO: 書籍件数が増えた場合はページング対応を検討する
-        app.MapGet("/api/admin/products", (IProductService productService) =>
+        app.MapGet("/api/admin/books", (IBookService bookService) =>
         {
-            var products = productService.GetAll();
+            var books = bookService.GetAll();
 
-            return Results.Ok(products);
+            return Results.Ok(books);
         })
         .RequireAuthorization(policy => policy.RequireRole("admin"));
 
         // 管理者向け書籍詳細取得API
-        app.MapGet("/api/admin/products/{id:int}", (int id, IProductService productService) =>
+        app.MapGet("/api/admin/books/{id:int}", (int id, IBookService bookService) =>
         {
-            var product = productService.FindById(id);
+            var book = bookService.FindById(id);
 
-            if (product is null)
+            if (book is null)
             {
                 return Results.NotFound(new MessageResponse(false, "書籍が見つかりません。"));
             }
 
-            return Results.Ok(product);
+            return Results.Ok(book);
         })
         .RequireAuthorization(policy => policy.RequireRole("admin"));
 
         // 管理者向け書籍追加API
-        app.MapPost("/api/admin/products", (ProductRequest request, IProductService productService) =>
+        app.MapPost("/api/admin/books", (BookRequest request, HttpContext context, IBookService bookService) =>
         {
-            var result = productService.Create(request);
+            var currentUsername = GetUsername(context);
+
+            if (string.IsNullOrEmpty(currentUsername))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = bookService.Create(request, currentUsername);
 
             if (!result.Success)
             {
@@ -144,9 +146,16 @@ public static class ProductEndpoints
         .RequireAuthorization(policy => policy.RequireRole("admin"));
 
         // 管理者向け書籍更新API
-        app.MapPut("/api/admin/products/{id:int}", (int id, ProductRequest request, IProductService productService) =>
+        app.MapPut("/api/admin/books/{id:int}", (int id, BookRequest request, HttpContext context, IBookService bookService) =>
         {
-            var result = productService.Update(id, request);
+            var currentUsername = GetUsername(context);
+
+            if (string.IsNullOrEmpty(currentUsername))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = bookService.Update(id, request, currentUsername);
 
             if (!result.Success)
             {
@@ -158,9 +167,16 @@ public static class ProductEndpoints
         .RequireAuthorization(policy => policy.RequireRole("admin"));
 
         // 管理者向け書籍削除API
-        app.MapDelete("/api/admin/products/{id:int}", (int id, IProductService productService) =>
+        app.MapDelete("/api/admin/books/{id:int}", (int id, HttpContext context, IBookService bookService) =>
         {
-            var result = productService.Delete(id);
+            var currentUsername = GetUsername(context);
+
+            if (string.IsNullOrEmpty(currentUsername))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = bookService.Delete(id, currentUsername);
 
             if (!result.Success)
             {
@@ -172,12 +188,15 @@ public static class ProductEndpoints
         .RequireAuthorization(policy => policy.RequireRole("admin"));
     }
 
-    // CSV出力用にリスクのある先頭文字や区切り文字を含む文字列を整形
+    private static string? GetUsername(HttpContext context)
+    {
+        return context.User.FindFirst("username")?.Value;
+    }
+
     private static string EscapeCsv(string value)
     {
         var needsQuote = value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r');
 
-        // Excel等で数式として解釈される可能性がある先頭文字をエスケープ
         if (value.Length > 0 && "=+-@\t\r".Contains(value[0]))
         {
             value = "'" + value;

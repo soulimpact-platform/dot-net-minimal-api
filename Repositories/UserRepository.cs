@@ -26,6 +26,7 @@ public class UserRepository : IUserRepository
                 role AS role
             FROM users
             WHERE username = @username
+              AND deleted_at IS NULL
         ";
 
         command.Parameters.AddWithValue("username", username);
@@ -59,6 +60,7 @@ public class UserRepository : IUserRepository
                 username AS username,
                 role AS role
             FROM users
+            WHERE deleted_at IS NULL
             ORDER BY id ASC
         ";
 
@@ -85,6 +87,7 @@ public class UserRepository : IUserRepository
                 role AS role
             FROM users
             WHERE id = @id
+              AND deleted_at IS NULL
         ";
 
         command.Parameters.AddWithValue("id", id);
@@ -110,6 +113,7 @@ public class UserRepository : IUserRepository
                 SELECT 1
                 FROM users
                 WHERE username = @username
+                  AND deleted_at IS NULL
             )
         ";
 
@@ -118,46 +122,39 @@ public class UserRepository : IUserRepository
         return (bool)command.ExecuteScalar()!;
     }
 
-    public bool ExistsByUsernameExceptId(string username, int id)
+    public void Create(string username, string passwordHash, string role, string createdBy)
     {
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
         var command = connection.CreateCommand();
         command.CommandText = @"
-            SELECT EXISTS(
-                SELECT 1
-                FROM users
-                WHERE username = @username
-                  AND id <> @id
+            INSERT INTO users (
+                username,
+                password_hash,
+                role,
+                created_by,
+                updated_by
+            )
+            VALUES (
+                @username,
+                @passwordHash,
+                @role,
+                @createdBy,
+                @updatedBy
             )
         ";
 
         command.Parameters.AddWithValue("username", username);
-        command.Parameters.AddWithValue("id", id);
-
-        return (bool)command.ExecuteScalar()!;
-    }
-
-    public void Create(string username, string passwordHash, string role)
-    {
-        using var connection = new NpgsqlConnection(_connectionString);
-        connection.Open();
-
-        var command = connection.CreateCommand();
-        command.CommandText = @"
-            INSERT INTO users (username, password_hash, role)
-            VALUES (@username, @passwordHash, @role)
-        ";
-
-        command.Parameters.AddWithValue("username", username);
         command.Parameters.AddWithValue("passwordHash", passwordHash);
         command.Parameters.AddWithValue("role", role);
+        command.Parameters.AddWithValue("createdBy", createdBy);
+        command.Parameters.AddWithValue("updatedBy", createdBy);
 
         command.ExecuteNonQuery();
     }
 
-    public void Update(int id, string username, string role)
+    public void Update(int id, string role, string updatedBy)
     {
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
@@ -165,19 +162,20 @@ public class UserRepository : IUserRepository
         var command = connection.CreateCommand();
         command.CommandText = @"
             UPDATE users
-            SET username = @username,
-                role = @role
+            SET role = @role,
+                updated_by = @updatedBy
             WHERE id = @id
+              AND deleted_at IS NULL
         ";
 
         command.Parameters.AddWithValue("id", id);
-        command.Parameters.AddWithValue("username", username);
         command.Parameters.AddWithValue("role", role);
+        command.Parameters.AddWithValue("updatedBy", updatedBy);
 
         command.ExecuteNonQuery();
     }
 
-    public void UpdateWithPassword(int id, string username, string passwordHash, string role)
+    public void UpdateWithPassword(int id, string passwordHash, string role, string updatedBy)
     {
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
@@ -185,16 +183,17 @@ public class UserRepository : IUserRepository
         var command = connection.CreateCommand();
         command.CommandText = @"
             UPDATE users
-            SET username = @username,
-                password_hash = @passwordHash,
-                role = @role
+            SET password_hash = @passwordHash,
+                role = @role,
+                updated_by = @updatedBy
             WHERE id = @id
+              AND deleted_at IS NULL
         ";
 
         command.Parameters.AddWithValue("id", id);
-        command.Parameters.AddWithValue("username", username);
         command.Parameters.AddWithValue("passwordHash", passwordHash);
         command.Parameters.AddWithValue("role", role);
+        command.Parameters.AddWithValue("updatedBy", updatedBy);
 
         command.ExecuteNonQuery();
     }
@@ -207,8 +206,10 @@ public class UserRepository : IUserRepository
         var command = connection.CreateCommand();
         command.CommandText = @"
             UPDATE users
-            SET password_hash = @passwordHash
+            SET password_hash = @passwordHash,
+                updated_by = 'system'
             WHERE id = @userId
+              AND deleted_at IS NULL
         ";
 
         command.Parameters.AddWithValue("passwordHash", passwordHash);
@@ -217,26 +218,7 @@ public class UserRepository : IUserRepository
         command.ExecuteNonQuery();
     }
 
-    public bool HasLoanHistory(int userId)
-    {
-        using var connection = new NpgsqlConnection(_connectionString);
-        connection.Open();
-
-        var command = connection.CreateCommand();
-        command.CommandText = @"
-            SELECT EXISTS(
-                SELECT 1
-                FROM book_loans
-                WHERE user_id = @userId
-            )
-        ";
-
-        command.Parameters.AddWithValue("userId", userId);
-
-        return (bool)command.ExecuteScalar()!;
-    }
-
-    public void DeleteWithLoginTokens(int userId)
+    public void DeleteWithLoginTokens(int userId, string updatedBy)
     {
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
@@ -256,11 +238,15 @@ public class UserRepository : IUserRepository
         var deleteUserCommand = connection.CreateCommand();
         deleteUserCommand.Transaction = transaction;
         deleteUserCommand.CommandText = @"
-            DELETE FROM users
+            UPDATE users
+            SET deleted_at = CURRENT_TIMESTAMP,
+                updated_by = @updatedBy
             WHERE id = @userId
+              AND deleted_at IS NULL
         ";
 
         deleteUserCommand.Parameters.AddWithValue("userId", userId);
+        deleteUserCommand.Parameters.AddWithValue("updatedBy", updatedBy);
         deleteUserCommand.ExecuteNonQuery();
 
         transaction.Commit();

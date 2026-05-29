@@ -1,19 +1,18 @@
 using Npgsql;
 using NpgsqlTypes;
 
-// productsテーブルへのデータアクセスを行うRepository
-public class ProductRepository : IProductRepository
+// booksテーブルへのデータアクセスを行うRepository
+public class BookRepository : IBookRepository
 {
     private readonly string _connectionString;
 
-    public ProductRepository(IConfiguration configuration)
+    public BookRepository(IConfiguration configuration)
     {
-        // PostgreSQLへの接続文字列を取得
         _connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("DefaultConnection is not configured");
     }
 
-    public ProductSearchResultResponse Search(
+    public BookSearchResultResponse Search(
         string name,
         string category,
         string author,
@@ -25,9 +24,7 @@ public class ProductRepository : IProductRepository
         int pageSize
     )
     {
-        var products = new List<ProductResponse>();
-
-        // ソート対象、並び順、取得開始位置を設定
+        var books = new List<BookResponse>();
         var orderBy = GetOrderBy(sortBy);
         var orderDirection = GetOrderDirection(sortOrder);
         var offset = (page - 1) * pageSize;
@@ -35,35 +32,27 @@ public class ProductRepository : IProductRepository
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
-        // 検索条件に一致する総件数を取得
         var countCommand = connection.CreateCommand();
         countCommand.CommandText = $@"
             SELECT COUNT(*)
             {BuildFromWhereQuery()}
         ";
-
-        // 検索条件をSQLパラメータに設定
         AddSearchParameters(countCommand, name, category, author, minPrice, maxPrice);
 
         var totalCount = Convert.ToInt32(countCommand.ExecuteScalar());
 
-        // 検索結果をページ単位で取得
         var command = connection.CreateCommand();
         command.CommandText = $@"
             SELECT
-                p.id AS id,
-                p.name AS name,
+                b.id AS id,
+                b.name AS name,
                 c.name AS category_name,
                 a.name AS author_name,
-                p.price AS price
+                b.price AS price
             {BuildBaseQuery(orderBy, orderDirection)}
             LIMIT @pageSize OFFSET @offset
         ";
-
-        // 検索条件をSQLパラメータに設定
         AddSearchParameters(command, name, category, author, minPrice, maxPrice);
-
-        // ページング用の取得件数と取得開始位置を設定
         command.Parameters.AddWithValue("pageSize", pageSize);
         command.Parameters.AddWithValue("offset", offset);
 
@@ -71,20 +60,18 @@ public class ProductRepository : IProductRepository
 
         while (reader.Read())
         {
-            // DBから取得した行を検索結果用レスポンスに変換
-            products.Add(CreateProductResponse(reader));
+            books.Add(CreateBookResponse(reader));
         }
 
-        // 検索結果、総件数、ページ情報を返却
-        return new ProductSearchResultResponse(
-            products,
+        return new BookSearchResultResponse(
+            books,
             totalCount,
             page,
             pageSize
         );
     }
 
-    public List<ProductResponse> SearchAll(
+    public List<BookResponse> SearchAll(
         string name,
         string category,
         string author,
@@ -95,96 +82,96 @@ public class ProductRepository : IProductRepository
         int limit
     )
     {
-        var products = new List<ProductResponse>();
-
-        // CSV出力用のソート対象と並び順を設定
+        var books = new List<BookResponse>();
         var orderBy = GetOrderBy(sortBy);
         var orderDirection = GetOrderDirection(sortOrder);
 
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
-        // 検索条件に一致する書籍を指定件数まで取得
         var command = connection.CreateCommand();
         command.CommandText = $@"
             SELECT
-                p.id AS id,
-                p.name AS name,
+                b.id AS id,
+                b.name AS name,
                 c.name AS category_name,
                 a.name AS author_name,
-                p.price AS price
+                b.price AS price
             {BuildBaseQuery(orderBy, orderDirection)}
             LIMIT @limit
         ";
-
-        // 検索条件をSQLパラメータに設定
         AddSearchParameters(command, name, category, author, minPrice, maxPrice);
-
-        // CSV出力時の最大取得件数を設定
         command.Parameters.AddWithValue("limit", limit);
 
         using var reader = command.ExecuteReader();
 
         while (reader.Read())
         {
-            // DBから取得した行をCSV出力用レスポンスに変換
-            products.Add(CreateProductResponse(reader));
+            books.Add(CreateBookResponse(reader));
         }
 
-        return products;
+        return books;
     }
 
-    public List<ProductResponse> FindAll()
+    public List<BookResponse> FindAll()
     {
-        var products = new List<ProductResponse>();
+        var books = new List<BookResponse>();
 
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
-        // 管理者向けに書籍一覧を取得
         var command = connection.CreateCommand();
         command.CommandText = @"
             SELECT
-                p.id AS id,
-                p.name AS name,
+                b.id AS id,
+                b.name AS name,
                 c.name AS category_name,
                 a.name AS author_name,
-                p.price AS price
-            FROM products p
-            INNER JOIN categories c ON p.category_id = c.id
-            INNER JOIN authors a ON p.author_id = a.id
-            ORDER BY p.id ASC
+                b.price AS price
+            FROM books b
+            INNER JOIN categories c
+                ON b.category_id = c.id
+               AND c.deleted_at IS NULL
+            INNER JOIN book_authors a
+                ON b.author_id = a.id
+               AND a.deleted_at IS NULL
+            WHERE b.deleted_at IS NULL
+            ORDER BY b.id ASC
         ";
 
         using var reader = command.ExecuteReader();
 
         while (reader.Read())
         {
-            products.Add(CreateProductResponse(reader));
+            books.Add(CreateBookResponse(reader));
         }
 
-        return products;
+        return books;
     }
 
-    public ProductDetailResponse? FindById(int id)
+    public BookDetailResponse? FindById(int id)
     {
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
-        // 指定されたIDの書籍詳細を取得
         var command = connection.CreateCommand();
         command.CommandText = @"
             SELECT
-                p.id AS id,
-                p.name AS name,
+                b.id AS id,
+                b.name AS name,
                 c.name AS category_name,
                 a.name AS author_name,
-                p.price AS price,
-                p.description AS description
-            FROM products p
-            INNER JOIN categories c ON p.category_id = c.id
-            INNER JOIN authors a ON p.author_id = a.id
-            WHERE p.id = @id
+                b.price AS price,
+                b.description AS description
+            FROM books b
+            INNER JOIN categories c
+                ON b.category_id = c.id
+               AND c.deleted_at IS NULL
+            INNER JOIN book_authors a
+                ON b.author_id = a.id
+               AND a.deleted_at IS NULL
+            WHERE b.id = @id
+              AND b.deleted_at IS NULL
         ";
 
         command.Parameters.AddWithValue("id", id);
@@ -196,27 +183,40 @@ public class ProductRepository : IProductRepository
             return null;
         }
 
-        // DBから取得した行を書籍詳細用レスポンスに変換
-        return CreateProductDetailResponse(reader);
+        return CreateBookDetailResponse(reader);
     }
 
-    public void Create(string name, string category, string author, int price, string description)
+    public void Create(string name, string category, string author, int price, string description, string createdBy)
     {
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
         using var transaction = connection.BeginTransaction();
 
-        // カテゴリ・著者を取得し、存在しない場合は追加
-        var categoryId = GetOrCreateCategoryId(connection, transaction, category);
-        var authorId = GetOrCreateAuthorId(connection, transaction, author);
+        var categoryId = GetOrCreateCategoryId(connection, transaction, category, createdBy);
+        var authorId = GetOrCreateAuthorId(connection, transaction, author, createdBy);
 
-        // 書籍を追加
         var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = @"
-            INSERT INTO products (name, category_id, author_id, price, description)
-            VALUES (@name, @categoryId, @authorId, @price, @description)
+            INSERT INTO books (
+                name,
+                category_id,
+                author_id,
+                price,
+                description,
+                created_by,
+                updated_by
+            )
+            VALUES (
+                @name,
+                @categoryId,
+                @authorId,
+                @price,
+                @description,
+                @createdBy,
+                @updatedBy
+            )
         ";
 
         command.Parameters.AddWithValue("name", name);
@@ -224,34 +224,36 @@ public class ProductRepository : IProductRepository
         command.Parameters.AddWithValue("authorId", authorId);
         command.Parameters.AddWithValue("price", price);
         command.Parameters.AddWithValue("description", description);
+        command.Parameters.AddWithValue("createdBy", createdBy);
+        command.Parameters.AddWithValue("updatedBy", createdBy);
 
         command.ExecuteNonQuery();
 
         transaction.Commit();
     }
 
-    public void Update(int id, string name, string category, string author, int price, string description)
+    public void Update(int id, string name, string category, string author, int price, string description, string updatedBy)
     {
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
         using var transaction = connection.BeginTransaction();
 
-        // カテゴリ・著者を取得し、存在しない場合は追加
-        var categoryId = GetOrCreateCategoryId(connection, transaction, category);
-        var authorId = GetOrCreateAuthorId(connection, transaction, author);
+        var categoryId = GetOrCreateCategoryId(connection, transaction, category, updatedBy);
+        var authorId = GetOrCreateAuthorId(connection, transaction, author, updatedBy);
 
-        // 書籍を更新
         var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = @"
-            UPDATE products
+            UPDATE books
             SET name = @name,
                 category_id = @categoryId,
                 author_id = @authorId,
                 price = @price,
-                description = @description
+                description = @description,
+                updated_by = @updatedBy
             WHERE id = @id
+              AND deleted_at IS NULL
         ";
 
         command.Parameters.AddWithValue("id", id);
@@ -260,53 +262,36 @@ public class ProductRepository : IProductRepository
         command.Parameters.AddWithValue("authorId", authorId);
         command.Parameters.AddWithValue("price", price);
         command.Parameters.AddWithValue("description", description);
+        command.Parameters.AddWithValue("updatedBy", updatedBy);
 
         command.ExecuteNonQuery();
 
         transaction.Commit();
     }
 
-    public bool HasLoanHistory(int productId)
+    public void Delete(int id, string updatedBy)
     {
         using var connection = new NpgsqlConnection(_connectionString);
         connection.Open();
 
-        // 指定書籍の貸出履歴が存在するか確認
         var command = connection.CreateCommand();
         command.CommandText = @"
-            SELECT EXISTS(
-                SELECT 1
-                FROM book_loans
-                WHERE product_id = @productId
-            )
-        ";
-
-        command.Parameters.AddWithValue("productId", productId);
-
-        return (bool)command.ExecuteScalar()!;
-    }
-
-    public void Delete(int id)
-    {
-        using var connection = new NpgsqlConnection(_connectionString);
-        connection.Open();
-
-        // 書籍を削除
-        var command = connection.CreateCommand();
-        command.CommandText = @"
-            DELETE FROM products
+            UPDATE books
+            SET deleted_at = CURRENT_TIMESTAMP,
+                updated_by = @updatedBy
             WHERE id = @id
+              AND deleted_at IS NULL
         ";
 
         command.Parameters.AddWithValue("id", id);
+        command.Parameters.AddWithValue("updatedBy", updatedBy);
 
         command.ExecuteNonQuery();
     }
 
-    // DBから取得した行を書籍検索結果用レスポンスに変換
-    private static ProductResponse CreateProductResponse(NpgsqlDataReader reader)
+    private static BookResponse CreateBookResponse(NpgsqlDataReader reader)
     {
-        return new ProductResponse(
+        return new BookResponse(
             reader.GetInt32(reader.GetOrdinal("id")),
             reader.GetString(reader.GetOrdinal("name")),
             reader.GetString(reader.GetOrdinal("category_name")),
@@ -315,10 +300,9 @@ public class ProductRepository : IProductRepository
         );
     }
 
-    // DBから取得した行を書籍詳細用レスポンスに変換
-    private static ProductDetailResponse CreateProductDetailResponse(NpgsqlDataReader reader)
+    private static BookDetailResponse CreateBookDetailResponse(NpgsqlDataReader reader)
     {
-        return new ProductDetailResponse(
+        return new BookDetailResponse(
             reader.GetInt32(reader.GetOrdinal("id")),
             reader.GetString(reader.GetOrdinal("name")),
             reader.GetString(reader.GetOrdinal("category_name")),
@@ -328,31 +312,33 @@ public class ProductRepository : IProductRepository
         );
     }
 
-    // 書籍検索で共通利用するFROM句とWHERE句を取得
     private static string BuildFromWhereQuery()
     {
         return @"
-            FROM products p
-            INNER JOIN categories c ON p.category_id = c.id
-            INNER JOIN authors a ON p.author_id = a.id
-            WHERE (@name = '' OR p.name LIKE @nameLike ESCAPE '!')
+            FROM books b
+            INNER JOIN categories c
+                ON b.category_id = c.id
+               AND c.deleted_at IS NULL
+            INNER JOIN book_authors a
+                ON b.author_id = a.id
+               AND a.deleted_at IS NULL
+            WHERE b.deleted_at IS NULL
+              AND (@name = '' OR b.name LIKE @nameLike ESCAPE '!')
               AND (@category = '' OR c.name LIKE @categoryLike ESCAPE '!')
               AND (@author = '' OR a.name LIKE @authorLike ESCAPE '!')
-              AND (@minPrice IS NULL OR p.price >= @minPrice)
-              AND (@maxPrice IS NULL OR p.price <= @maxPrice)
+              AND (@minPrice IS NULL OR b.price >= @minPrice)
+              AND (@maxPrice IS NULL OR b.price <= @maxPrice)
         ";
     }
 
-    // 書籍検索で共通利用するFROM句、WHERE句、ORDER BY句を取得
     private static string BuildBaseQuery(string orderBy, string orderDirection)
     {
         return $@"
             {BuildFromWhereQuery()}
-            ORDER BY {orderBy} {orderDirection}, p.id ASC
+            ORDER BY {orderBy} {orderDirection}, b.id ASC
         ";
     }
 
-    // 書籍検索で共通利用するSQLパラメータを設定
     private static void AddSearchParameters(
         NpgsqlCommand command,
         string name,
@@ -362,12 +348,10 @@ public class ProductRepository : IProductRepository
         int? maxPrice
     )
     {
-        // LIKE検索用にワイルドカード文字をエスケープ
         var escapedName = EscapeLike(name);
         var escapedCategory = EscapeLike(category);
         var escapedAuthor = EscapeLike(author);
 
-        // 文字列検索条件を設定
         command.Parameters.AddWithValue("name", name);
         command.Parameters.AddWithValue("nameLike", $"%{escapedName}%");
         command.Parameters.AddWithValue("category", category);
@@ -375,58 +359,135 @@ public class ProductRepository : IProductRepository
         command.Parameters.AddWithValue("author", author);
         command.Parameters.AddWithValue("authorLike", $"%{escapedAuthor}%");
 
-        // 価格下限が未入力の場合もinteger型のNULLとして設定
         command.Parameters.Add("minPrice", NpgsqlDbType.Integer).Value =
             minPrice.HasValue ? minPrice.Value : DBNull.Value;
 
-        // 価格上限が未入力の場合もinteger型のNULLとして設定
         command.Parameters.Add("maxPrice", NpgsqlDbType.Integer).Value =
             maxPrice.HasValue ? maxPrice.Value : DBNull.Value;
     }
 
-    // カテゴリ名からカテゴリIDを取得し、存在しない場合は追加
     private static int GetOrCreateCategoryId(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
-        string category
+        string category,
+        string username
     )
     {
-        var command = connection.CreateCommand();
-        command.Transaction = transaction;
-        command.CommandText = @"
-            INSERT INTO categories (name)
-            VALUES (@name)
-            ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
-            RETURNING id
-        ";
+        var existingId = FindActiveIdByName(
+            connection,
+            transaction,
+            "categories",
+            category
+        );
 
-        command.Parameters.AddWithValue("name", category);
+        if (existingId is not null)
+        {
+            return existingId.Value;
+        }
 
-        return Convert.ToInt32(command.ExecuteScalar());
+        return InsertNameAndReturnId(
+            connection,
+            transaction,
+            "categories",
+            category,
+            username
+        );
     }
 
-    // 著者名から著者IDを取得し、存在しない場合は追加
     private static int GetOrCreateAuthorId(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
-        string author
+        string author,
+        string username
+    )
+    {
+        var existingId = FindActiveIdByName(
+            connection,
+            transaction,
+            "book_authors",
+            author
+        );
+
+        if (existingId is not null)
+        {
+            return existingId.Value;
+        }
+
+        return InsertNameAndReturnId(
+            connection,
+            transaction,
+            "book_authors",
+            author,
+            username
+        );
+    }
+
+    private static int? FindActiveIdByName(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        string tableName,
+        string name
     )
     {
         var command = connection.CreateCommand();
         command.Transaction = transaction;
-        command.CommandText = @"
-            INSERT INTO authors (name)
-            VALUES (@name)
-            ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+        command.CommandText = $@"
+            SELECT id
+            FROM {tableName}
+            WHERE name = @name
+              AND deleted_at IS NULL
+        ";
+
+        command.Parameters.AddWithValue("name", name);
+
+        var result = command.ExecuteScalar();
+
+        return result is null ? null : Convert.ToInt32(result);
+    }
+
+    private static int InsertNameAndReturnId(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        string tableName,
+        string name,
+        string username
+    )
+    {
+        var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = $@"
+            INSERT INTO {tableName} (name, created_by, updated_by)
+            VALUES (@name, @createdBy, @updatedBy)
+            ON CONFLICT DO NOTHING
             RETURNING id
         ";
 
-        command.Parameters.AddWithValue("name", author);
+        command.Parameters.AddWithValue("name", name);
+        command.Parameters.AddWithValue("createdBy", username);
+        command.Parameters.AddWithValue("updatedBy", username);
 
-        return Convert.ToInt32(command.ExecuteScalar());
+        var insertedId = command.ExecuteScalar();
+
+        if (insertedId is not null)
+        {
+            return Convert.ToInt32(insertedId);
+        }
+
+        var existingId = FindActiveIdByName(
+            connection,
+            transaction,
+            tableName,
+            name
+        );
+
+        if (existingId is null)
+        {
+            throw new InvalidOperationException("Failed to resolve related master data.");
+        }
+
+        return existingId.Value;
     }
 
-    // LIKE検索用に特殊文字をエスケープ
     private static string EscapeLike(string value)
     {
         return value
@@ -435,18 +496,16 @@ public class ProductRepository : IProductRepository
             .Replace("_", "!_");
     }
 
-    // 画面から指定された並び替え項目をSQLの列名に変換
     private static string GetOrderBy(string sortBy)
     {
         return sortBy switch
         {
-            "name" => "p.name",
+            "name" => "b.name",
             "category" => "c.name",
-            _ => "p.id"
+            _ => "b.id"
         };
     }
 
-    // 画面から指定された並び順をSQLのASC/DESCに変換
     private static string GetOrderDirection(string sortOrder)
     {
         return string.Equals(sortOrder, "desc", StringComparison.OrdinalIgnoreCase)

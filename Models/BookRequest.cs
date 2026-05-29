@@ -1,5 +1,5 @@
 // 書籍追加・編集時のリクエスト
-public record ProductRequest(
+public record BookRequest(
     string Name,
     string Category,
     string Author,
