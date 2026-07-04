@@ -79,7 +79,7 @@ function createSearchUrl(page) {
         params.append("maxPrice", conditions.maxPrice);
     }
 
-    return `/api/products/search?${params.toString()}`;
+    return `/api/books/search?${params.toString()}`;
 }
 
 // CSVエクスポートAPI用のURLを作成
@@ -102,18 +102,18 @@ function createCsvUrl() {
         params.append("maxPrice", conditions.maxPrice);
     }
 
-    return `/api/products/export-csv?${params.toString()}`;
+    return `/api/books/export-csv?${params.toString()}`;
 }
 
 document.getElementById("searchButton").addEventListener("click", async function () {
     // 検索ボタン押下時は1ページ目から表示
     currentPage = 1;
 
-    await searchProducts();
+    await searchBooks();
 });
 
 // 書籍検索APIを呼び出し、検索結果を表示
-async function searchProducts() {
+async function searchBooks() {
     const message = document.getElementById("message");
     const resultArea = document.getElementById("resultArea");
     const pagingArea = document.getElementById("pagingArea");
@@ -148,16 +148,16 @@ async function searchProducts() {
         }
 
         const result = await response.json();
-        const products = result.products;
+        const books = result.books;
 
-        if (products.length === 0) {
+        if (books.length === 0) {
             // 検索結果が0件の場合
             message.textContent = "該当する書籍がありません。";
             return;
         }
 
         // 検索結果をテーブル形式で表示
-        renderProductTable(products);
+        renderBookTable(books);
 
         // ページングを表示
         renderPaging(result.totalCount, result.page, result.pageSize);
@@ -168,7 +168,7 @@ async function searchProducts() {
 }
 
 // 検索結果テーブルを表示
-function renderProductTable(products) {
+function renderBookTable(books) {
     const resultArea = document.getElementById("resultArea");
 
     const table = document.createElement("table");
@@ -189,30 +189,30 @@ function renderProductTable(products) {
         </tr>
     `;
 
-    products.forEach(function (product) {
+    books.forEach(function (book) {
         const row = document.createElement("tr");
 
         // 書籍名リンクを作成
         const nameCell = document.createElement("td");
         const nameLink = document.createElement("a");
-        nameLink.href = `detail.html?id=${encodeURIComponent(product.id)}`;
-        nameLink.textContent = product.name;
+        nameLink.href = `detail.html?id=${encodeURIComponent(book.id)}`;
+        nameLink.textContent = book.name;
         nameCell.appendChild(nameLink);
         row.appendChild(nameCell);
 
         // カテゴリを設定
         const categoryCell = document.createElement("td");
-        categoryCell.textContent = product.category;
+        categoryCell.textContent = book.category;
         row.appendChild(categoryCell);
 
         // 著者名を設定
         const authorCell = document.createElement("td");
-        authorCell.textContent = product.author;
+        authorCell.textContent = book.author;
         row.appendChild(authorCell);
 
         // 価格を設定
         const priceCell = document.createElement("td");
-        priceCell.textContent = `${product.price}円`;
+        priceCell.textContent = `${book.price}円`;
         row.appendChild(priceCell);
 
         table.appendChild(row);
@@ -237,12 +237,11 @@ function renderProductTable(products) {
             // 並び替え時は1ページ目から表示
             currentPage = 1;
 
-            await searchProducts();
+            await searchBooks();
         });
     });
 }
 
-// 現在の並び順に応じたソート表示を取得
 function getSortMark(sortBy) {
     if (currentSortBy !== sortBy) {
         return "↕";
@@ -251,7 +250,6 @@ function getSortMark(sortBy) {
     return currentSortOrder === "asc" ? "▲" : "▼";
 }
 
-// 現在の並び順に応じたaria-sort属性値を取得
 function getAriaSort(sortBy) {
     if (currentSortBy !== sortBy) {
         return "none";
@@ -260,48 +258,42 @@ function getAriaSort(sortBy) {
     return currentSortOrder === "asc" ? "ascending" : "descending";
 }
 
-// ページングを表示
 function renderPaging(totalCount, page, pageSize) {
     const pagingArea = document.getElementById("pagingArea");
-
     const totalPages = Math.ceil(totalCount / pageSize);
 
     if (totalPages <= 1) {
         return;
     }
 
-    const previousButton = document.createElement("button");
-    previousButton.textContent = "前へ";
-    previousButton.className = "paging-button";
-    previousButton.disabled = page <= 1;
-
-    previousButton.addEventListener("click", async function () {
-        currentPage--;
-        await searchProducts();
+    const prevButton = document.createElement("button");
+    prevButton.textContent = "前へ";
+    prevButton.className = "paging-button";
+    prevButton.disabled = page <= 1;
+    prevButton.addEventListener("click", async function () {
+        currentPage -= 1;
+        await searchBooks();
     });
-
-    const pageText = document.createElement("span");
-    pageText.textContent = ` ${page} / ${totalPages} ページ `;
 
     const nextButton = document.createElement("button");
     nextButton.textContent = "次へ";
     nextButton.className = "paging-button";
     nextButton.disabled = page >= totalPages;
-
     nextButton.addEventListener("click", async function () {
-        currentPage++;
-        await searchProducts();
+        currentPage += 1;
+        await searchBooks();
     });
 
-    pagingArea.appendChild(previousButton);
-    pagingArea.appendChild(pageText);
+    const pageInfo = document.createElement("span");
+    pageInfo.textContent = `${page} / ${totalPages} ページ`;
+
+    pagingArea.appendChild(prevButton);
+    pagingArea.appendChild(pageInfo);
     pagingArea.appendChild(nextButton);
 }
 
 document.getElementById("csvButton").addEventListener("click", async function () {
     const message = document.getElementById("message");
-
-    // 前回のメッセージをクリア
     message.textContent = "";
 
     if (!validatePriceRange(message)) {
@@ -309,7 +301,6 @@ document.getElementById("csvButton").addEventListener("click", async function ()
     }
 
     try {
-        // JWTをAuthorizationヘッダに付与してCSVエクスポートAPIを呼び出し
         const response = await fetch(createCsvUrl(), {
             headers: {
                 "Authorization": `Bearer ${token}`
@@ -317,35 +308,27 @@ document.getElementById("csvButton").addEventListener("click", async function ()
         });
 
         if (response.status === 401) {
-            // JWTが無効・期限切れ・ログアウト済みの場合はログイン画面へ戻る
             redirectToLogin();
             return;
         }
 
         if (!response.ok) {
-            const error = await response.json();
-
-            // CSV出力に失敗した場合
-            message.textContent = error.message ?? "CSVエクスポートに失敗しました。";
+            message.textContent = "CSV出力に失敗しました。";
             return;
         }
 
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
-
         const link = document.createElement("a");
         link.href = url;
-        link.download = "products.csv";
+        link.download = "books.csv";
         link.click();
-
         window.URL.revokeObjectURL(url);
     } catch {
-        // 通信断などでfetch自体に失敗した場合
         message.textContent = "通信エラーが発生しました。";
     }
 });
 
 document.getElementById("backButton").addEventListener("click", function () {
-    // アカウント表示画面へ戻る
     window.location.href = "account.html";
 });

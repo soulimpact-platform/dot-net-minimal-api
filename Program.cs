@@ -23,11 +23,12 @@ var jwtAudience = builder.Configuration["Jwt:Audience"]
 // 使用するRepositoryを登録
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ILoginTokenRepository, LoginTokenRepository>();
-builder.Services.AddScoped<IProductRepository, ProductRepository>();
+builder.Services.AddScoped<IBookRepository, BookRepository>();
 
 // 使用するServiceを登録
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<IBookService, BookService>();
+builder.Services.AddScoped<IUserService, UserService>();
 
 // パスワードハッシュ検証用の処理を登録
 builder.Services.AddScoped<IPasswordHasher<UserAuthInfo>, PasswordHasher<UserAuthInfo>>();
@@ -37,6 +38,9 @@ builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        // JWTのクレーム名を自動変換しない
+        options.MapInboundClaims = false;
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             // 署名に使用した秘密鍵が正しいか検証
@@ -102,6 +106,7 @@ app.UseAuthorization();
 
 // APIエンドポイントを登録
 app.MapAuthEndpoints();
-app.MapProductEndpoints();
+app.MapBookEndpoints();
+app.MapUserEndpoints();
 
 app.Run();

@@ -45,13 +45,13 @@ document.getElementById("searchPageButton").addEventListener("click", function (
 });
 
 document.getElementById("userManageButton").addEventListener("click", function () {
-    // ユーザ管理機能は後続対応
-    alert("ユーザ管理機能は現在未実装です。");
+    // ユーザ管理画面へ遷移
+    window.location.href = "user-list.html";
 });
 
-document.getElementById("productManageButton").addEventListener("click", function () {
-    // 書籍管理機能は後続対応
-    alert("書籍管理機能は現在未実装です。");
+document.getElementById("bookManageButton").addEventListener("click", function () {
+    // 書籍管理画面へ遷移
+    window.location.href = "book-list.html";
 });
 
 document.getElementById("logoutButton").addEventListener("click", async function () {
